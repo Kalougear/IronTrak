@@ -60,6 +60,9 @@ private:
     float _tempAZThresh;
     uint8_t _tempCutMode;
     
+    bool _needsRedraw;
+    bool _exitRequest;
+    
     void render(DisplaySys* display);
     void handleNavigation(InputEvent e);
     void handleStats(InputEvent e);

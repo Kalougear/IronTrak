@@ -9,6 +9,8 @@ void MenuSys::init(SystemSettings* settings, StatsSys* stats) {
     _calibSubItem = 0;
     _calibStep = 0;
     _stockPage = 0;
+    _needsRedraw = true;
+    _exitRequest = false;
 }
 
 bool MenuSys::update(InputEvent e, DisplaySys* display, EncoderSys* encoder) {
@@ -26,22 +28,29 @@ bool MenuSys::update(InputEvent e, DisplaySys* display, EncoderSys* encoder) {
         handleEdit(e);
     }
     
-    render(display);
+    if (_needsRedraw) {
+        render(display);
+        _needsRedraw = false;
+    }
     
     // Return false if user exited
-    return (_currentItem != ITEM_EXIT || _state != MENU_NAVIGATE);
+    return !_exitRequest;
 }
 
 void MenuSys::handleNavigation(InputEvent e) {
     if (e == EVENT_CW) {
         _currentItem++;
         if (_currentItem >= ITEM_COUNT) _currentItem = 0;
+        _needsRedraw = true;
     } else if (e == EVENT_CCW) {
         _currentItem--;
         if (_currentItem < 0) _currentItem = ITEM_COUNT - 1;
+        _needsRedraw = true;
     } else if (e == EVENT_CLICK) {
         if (_currentItem == ITEM_EXIT) {
             // Exit menu
+            // Storage::save(*_settings); // Save disabled to prevent freeze
+            _exitRequest = true;
             return;
         } else if (_currentItem == ITEM_STATS) {
             _state = MENU_STATS_VIEW;
@@ -57,6 +66,7 @@ void MenuSys::handleNavigation(InputEvent e) {
             // Initialize temp values
             if (_currentItem == ITEM_CUT_MODE) _tempCutMode = _settings->cutMode;
         }
+        _needsRedraw = true;
     }
 }
 
@@ -64,9 +74,11 @@ void MenuSys::handleStats(InputEvent e) {
     if (e == EVENT_CW) {
         _statsPage++;
         if (_statsPage > 4) _statsPage = 0;
+        _needsRedraw = true;
     } else if (e == EVENT_CCW) {
         _statsPage--;
         if (_statsPage < 0) _statsPage = 4;
+        _needsRedraw = true;
     } else if (e == EVENT_CLICK) {
         if (_statsPage == 4) {
             // Reset Project
@@ -76,6 +88,7 @@ void MenuSys::handleStats(InputEvent e) {
             // Exit stats
             _state = MENU_NAVIGATE;
         }
+        _needsRedraw = true;
     }
 }
 
@@ -83,9 +96,11 @@ void MenuSys::handleCalibSubmenu(InputEvent e) {
     if (e == EVENT_CW) {
         _calibSubItem++;
         if (_calibSubItem > 5) _calibSubItem = 0;
+        _needsRedraw = true;
     } else if (e == EVENT_CCW) {
         _calibSubItem--;
         if (_calibSubItem < 0) _calibSubItem = 5;
+        _needsRedraw = true;
     } else if (e == EVENT_CLICK) {
         if (_calibSubItem == 0) {
             // View/Edit Diameter
@@ -111,6 +126,7 @@ void MenuSys::handleCalibSubmenu(InputEvent e) {
             // Back
             _state = MENU_NAVIGATE;
         }
+        _needsRedraw = true;
     }
 }
 
@@ -120,6 +136,7 @@ void MenuSys::handleAutoCalib(InputEvent e, EncoderSys* encoder) {
         if (e == EVENT_CLICK) {
             encoder->reset();
             _calibStep = 1;
+            _needsRedraw = true;
         }
     } else if (_calibStep == 1) {
         // Step 1: Stop (Click to Capture)
@@ -127,12 +144,13 @@ void MenuSys::handleAutoCalib(InputEvent e, EncoderSys* encoder) {
             _calibPulses = encoder->getRawCount();
             _calibRealLen = encoder->getDistanceMM();
             _calibStep = 2;
+            _needsRedraw = true;
         }
     } else if (_calibStep == 2) {
         // Step 2: Input Actual Length
-        if (e == EVENT_CW) _calibRealLen += 0.5;
-        else if (e == EVENT_CCW) _calibRealLen -= 0.5;
-        else if (e == EVENT_CLICK) _calibStep = 3;
+        if (e == EVENT_CW) { _calibRealLen += 0.5; _needsRedraw = true; }
+        else if (e == EVENT_CCW) { _calibRealLen -= 0.5; _needsRedraw = true; }
+        else if (e == EVENT_CLICK) { _calibStep = 3; _needsRedraw = true; }
     } else if (_calibStep == 3) {
         // Step 3: Confirm & Save
         if (e == EVENT_CLICK) {
@@ -146,6 +164,7 @@ void MenuSys::handleAutoCalib(InputEvent e, EncoderSys* encoder) {
                 encoder->setWheelDiameter(newDia);
             }
             _state = MENU_CALIB_SUBMENU;
+            _needsRedraw = true;
         }
     }
 }
@@ -163,6 +182,7 @@ void MenuSys::handleStockSelect(InputEvent e) {
             _stockPage = 1;  // Move to size selection
             _settings->stockIdx = 0;  // Reset to first item
         }
+        _needsRedraw = true;
     } else if (_stockPage == 1) {
         // Page 1: Stock Size selection
         uint8_t maxIdx = 0;
@@ -192,6 +212,7 @@ void MenuSys::handleStockSelect(InputEvent e) {
                 _state = MENU_NAVIGATE;
             }
         }
+        _needsRedraw = true;
     } else {
         // Page 2: Face selection (for rectangular only)
         if (e == EVENT_CW || e == EVENT_CCW) {
@@ -215,6 +236,8 @@ void MenuSys::handleEdit(InputEvent e) {
                 Storage::save(*_settings);
                 _state = MENU_CALIB_SUBMENU;
             }
+            _needsRedraw = true;
+            _needsRedraw = true;
         } else if (_calibSubItem == 1) {
             // Edit Kerf
             if (e == EVENT_CW) _tempKerf += 0.1;
@@ -224,6 +247,7 @@ void MenuSys::handleEdit(InputEvent e) {
                 Storage::save(*_settings);
                 _state = MENU_CALIB_SUBMENU;
             }
+            _needsRedraw = true;
         } else if (_calibSubItem == 3) {
             // Edit Auto-Zero Threshold
             if (e == EVENT_CW) _tempAZThresh += 0.5;
@@ -233,6 +257,7 @@ void MenuSys::handleEdit(InputEvent e) {
                 Storage::save(*_settings);
                 _state = MENU_CALIB_SUBMENU;
             }
+            _needsRedraw = true;
         }
     } else {
         // Main menu edits
@@ -240,17 +265,21 @@ void MenuSys::handleEdit(InputEvent e) {
             _settings->isInch = !_settings->isInch;
             Storage::save(*_settings);
             _state = MENU_NAVIGATE;
+            _needsRedraw = true;
         } else if (_currentItem == ITEM_DIRECTION) {
             _settings->reverseDirection = !_settings->reverseDirection;
             Storage::save(*_settings);
             _state = MENU_NAVIGATE;
+            _needsRedraw = true;
         } else if (_currentItem == ITEM_CUT_MODE) {
             if (e == EVENT_CW || e == EVENT_CCW) {
                 _tempCutMode = (_tempCutMode == 0) ? 1 : 0;  // Toggle 0° / 45°
+                _needsRedraw = true;
             } else if (e == EVENT_CLICK) {
                 _settings->cutMode = _tempCutMode;
                 Storage::save(*_settings);
                 _state = MENU_NAVIGATE;
+                _needsRedraw = true;
             }
         }
     }
@@ -352,16 +381,16 @@ void MenuSys::render(DisplaySys* display) {
     }
     
     // Main menu rendering
-    const char* menuItems[] = {"Statistics", "Calibration", "Cut Mode", "Stock", "Units", "Direction", "Exit"};
+    const char* menuItems[] = {"Project Stats", "System Setup", "Blade Angle", "Material Profile", "Display Units", "Encoder Dir", "Return to Cut"};
     title = String(_currentItem + 1) + ". " + menuItems[_currentItem];
     
-    if (_currentItem == ITEM_STATS) value = "[ENTER]";
-    else if (_currentItem == ITEM_CALIB) value = "[ENTER]";
-    else if (_currentItem == ITEM_CUT_MODE) value = (_state == MENU_EDIT ? _tempCutMode : _settings->cutMode) == 0 ? "[0°]" : "[45°]";
-    else if (_currentItem == ITEM_STOCK) value = "[SELECT]";
-    else if (_currentItem == ITEM_UNITS) value = _settings->isInch ? "[INCH]" : "[MM]";
-    else if (_currentItem == ITEM_DIRECTION) value = _settings->reverseDirection ? "[REV]" : "[NORM]";
-    else if (_currentItem == ITEM_EXIT) value = "Click to Exit";
+    if (_currentItem == ITEM_STATS) value = "View History >";
+    else if (_currentItem == ITEM_CALIB) value = "Configure >";
+    else if (_currentItem == ITEM_CUT_MODE) value = (_state == MENU_EDIT ? _tempCutMode : _settings->cutMode) == 0 ? "Straight (0 deg)" : "Miter (45 deg)";
+    else if (_currentItem == ITEM_STOCK) value = "Select Size >";
+    else if (_currentItem == ITEM_UNITS) value = _settings->isInch ? "Imperial (Inch)" : "Metric (mm)";
+    else if (_currentItem == ITEM_DIRECTION) value = _settings->reverseDirection ? "Reversed" : "Normal";
+    else if (_currentItem == ITEM_EXIT) value = "Save & Exit >";
     
     display->showMenu(title.c_str(), value, _state == MENU_EDIT && _currentItem == ITEM_CUT_MODE);
 }

@@ -120,23 +120,42 @@ void DisplaySys::showMeasurement(float mm, bool isInch) {
 }
 
 void DisplaySys::showMenu(const char* title, String value, bool isEditMode) {
-    // Clear screen for menu
-    _lcd->clear();
+    // Optimized to prevent flickering (no clear())
     
-    // Title on line 0
-    _lcd->setCursor(0, 0);
-    _lcd->print(title);
+    // Line 0: Title
+    String line0 = String(title);
+    while(line0.length() < 20) line0 += " ";
     
-    // Value on line 1 (with edit indicator if applicable)
-    _lcd->setCursor(0, 1);
-    if (isEditMode) {
-        _lcd->print("> ");
+    if (line0 != _lastLine[0]) {
+        _lcd->setCursor(0, 0);
+        _lcd->print(line0);
+        _lastLine[0] = line0;
     }
-    _lcd->print(value);
     
-    // Cache cleared (menu is transient)
-    for (int i = 0; i < 4; i++) {
-        _lastLine[i] = "";
+    // Line 1: Value
+    String line1 = "";
+    if (isEditMode) line1 += "> ";
+    line1 += value;
+    while(line1.length() < 20) line1 += " ";
+    
+    if (line1 != _lastLine[1]) {
+        _lcd->setCursor(0, 1);
+        _lcd->print(line1);
+        _lastLine[1] = line1;
+    }
+    
+    // Clear lines 2 & 3 if they are not empty (from previous screen)
+    // We assume lines 2/3 are unused in menu for now
+    String blank = "                    ";
+    if (_lastLine[2] != blank) {
+        _lcd->setCursor(0, 2);
+        _lcd->print(blank);
+        _lastLine[2] = blank;
+    }
+    if (_lastLine[3] != blank) {
+        _lcd->setCursor(0, 3);
+        _lcd->print(blank);
+        _lastLine[3] = blank;
     }
 }
 

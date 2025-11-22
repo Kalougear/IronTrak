@@ -23,14 +23,14 @@ void StatsSys::registerCut(float lengthMM) {
         _settings->totalLengthMeters += (lenMeters + kerfMeters);
         
         // Save to EEPROM
-        Storage::save(*_settings);
+        // Storage::save(*_settings); // Disabled to prevent freeze/watchdog reset
     }
 }
 
 void StatsSys::resetProject() {
     _settings->projectCuts = 0;
     _settings->projectLengthMeters = 0.0;
-    Storage::save(*_settings);
+    Storage::save(*_settings); // Keep this one as it's a manual action
 }
 
 unsigned long StatsSys::getProjectCuts() {

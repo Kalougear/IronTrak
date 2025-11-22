@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <EEPROM.h>
+#include <IWatchdog.h> // Include IWatchdog for reload()
 #include "Config.h"
 
 struct SystemSettings {
@@ -29,9 +30,7 @@ class Storage {
 public:
     static void init() {
 #if defined(STM32F4xx)
-        // STM32 EEPROM emulation doesn't take size in begin() for some cores,
-        // but if using the standard one it might.
-        // However, the error said "candidate expects 0 arguments, 1 provided".
+        // STM32 EEPROM emulation setup
         EEPROM.begin(); 
 #endif
         // Check magic byte
@@ -60,7 +59,6 @@ public:
         defaults.faceIdx = 0;
         save(defaults);
         EEPROM.write(EEPROM_ADDR_MAGIC, 0x42);
-        // Commit removed as per error log (no member named commit)
     }
 
     static SystemSettings load() {
@@ -90,6 +88,9 @@ public:
     }
 
     static void save(const SystemSettings& s) {
+#if defined(STM32F4xx)
+        IWatchdog.reload(); // Feed watchdog before heavy write
+#endif
         EEPROM.put(EEPROM_ADDR_DIA, s.wheelDiameter);
         EEPROM.update(EEPROM_ADDR_UNITS, s.isInch);
         EEPROM.update(EEPROM_ADDR_DIR, s.reverseDirection);
@@ -105,7 +106,9 @@ public:
         EEPROM.update(EEPROM_ADDR_STOCK_TYPE, s.stockType);
         EEPROM.update(EEPROM_ADDR_STOCK_IDX, s.stockIdx);
         EEPROM.update(EEPROM_ADDR_FACE_IDX, s.faceIdx);
-        // Commit removed
+#if defined(STM32F4xx)
+        IWatchdog.reload(); // Feed watchdog after write
+#endif
     }
 };
 
