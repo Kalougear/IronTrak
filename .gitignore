@@ -1,0 +1,36 @@
+# PlatformIO/Arduino
+.pio/
+.vscode/
+.pioenvs/
+.piolibdeps/
+.clang_complete
+.gcc-flags.json
+*.o
+*.elf
+*.hex
+*.bin
+
+# IDE
+.idea/
+*.code-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Build artifacts
+*.pyc
+__pycache__/
+
+# Gemini AI workspace (optional - keep or remove)
+# .gemini/
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+
+# Logs
+*.log
