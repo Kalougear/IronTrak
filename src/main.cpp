@@ -1,5 +1,11 @@
 #include <Arduino.h>
-#include <avr/wdt.h>
+#if defined(STM32F4xx)
+  #include <IWatchdog.h>
+  #include <HardwareTimer.h>
+#else
+  #include <avr/wdt.h>
+#endif
+
 #include "headers/Config.h"
 #include "headers/StateMachine.h"
 #include "headers/EncoderSys.h"
@@ -38,10 +44,18 @@ bool hiddenMenuActive = false;
 // INTERRUPT SERVICE ROUTINES
 // ============================================================================
 
-// Timer1 Compare Match A ISR - Runs at 1kHz
+#if defined(STM32F4xx)
+// STM32 Timer Callback
+void Timer1_Callback() {
+    userInput.isrTick();
+}
+HardwareTimer *tickTimer = nullptr;
+#else
+// AVR Timer1 ISR
 ISR(TIMER1_COMPA_vect) {
     userInput.isrTick();
 }
+#endif
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -100,6 +114,10 @@ uint8_t getFaceValue() {
 void setup() {
     // 1. Initialize Serial
     Serial.begin(SERIAL_BAUD_RATE);
+    // Wait for USB Serial on STM32 (optional, but good for debug)
+    #if defined(STM32F4xx)
+    delay(2000); 
+    #endif
     Serial.println(F("IronTrak Phase 2 Booting..."));
 
     // 2. Initialize Subsystems
@@ -114,7 +132,15 @@ void setup() {
     statsSys.init(&settings);
     menuSys.init(&settings, &statsSys);
 
-    // 3. Configure Timer1 for 1kHz Interrupt
+    // 3. Configure Timer for 1kHz Interrupt
+#if defined(STM32F4xx)
+    // Use TIM3 (since TIM4 is Encoder, TIM1 is advanced)
+    // TIM3 is general purpose 16-bit
+    tickTimer = new HardwareTimer(TIM3);
+    tickTimer->setOverflow(1000, HERTZ_FORMAT); // 1kHz
+    tickTimer->attachInterrupt(Timer1_Callback);
+    tickTimer->resume();
+#else
     noInterrupts();
     TCCR1A = 0;
     TCCR1B = 0;
@@ -125,9 +151,14 @@ void setup() {
     TCCR1B |= (1 << CS11) | (1 << CS10); // 64 prescaler
     TIMSK1 |= (1 << OCIE1A); // Enable timer compare interrupt
     interrupts();
+#endif
 
     // 4. Enable Watchdog Timer (2 Seconds)
+#if defined(STM32F4xx)
+    IWatchdog.begin(2000000); // 2s in microseconds
+#else
     wdt_enable(WDTO_2S);
+#endif
     
     Serial.println(F("System Ready. Phase 2 Active."));
 }
@@ -136,7 +167,11 @@ void setup() {
 // MAIN LOOP
 // ============================================================================
 void loop() {
-    wdt_reset(); // Pet the dog
+#if defined(STM32F4xx)
+    IWatchdog.reload();
+#else
+    wdt_reset();
+#endif
 
     // 1. Handle User Input
     InputEvent event = userInput.getEvent();

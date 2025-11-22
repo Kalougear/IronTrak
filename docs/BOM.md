@@ -7,12 +7,20 @@
 ## 1. Electronics Components
 
 ### Microcontroller
-- **Arduino Nano (ATmega328P)**
+- **STM32F411 "Black Pill"**
   - Quantity: 1
-  - Specs: 5V, 16MHz
-  - Pinout: Make sure it has pins D2, D3 for interrupts
-  - ~$3-5 on AliExpress/Amazon
-  - ⚠️ Get the CH340 version (cheaper, works fine)
+  - Specs: 100MHz, 512KB Flash, 128KB RAM
+  - **CRITICAL:** Get the "WeAct Studio" version if possible (better quality)
+  - Connector: USB-C
+  - ~$5-6 on AliExpress/Amazon
+  - **Why?** Hardware Encoder Interface & 5V Tolerant Pins
+
+### Programmer (Optional but Recommended)
+- **ST-Link V2** (USB Dongle)
+  - Quantity: 1
+  - Purpose: Easy programming and debugging
+  - ~$3-5
+  - *Alternative:* Use USB-C cable and DFU mode (hold BOOT0 while plugging in)
 
 ### Main Encoder (Critical!)
 - **Industrial Optical Rotary Encoder**

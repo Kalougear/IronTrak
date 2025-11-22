@@ -28,6 +28,9 @@ struct SystemSettings {
 class Storage {
 public:
     static void init() {
+#if defined(STM32F4xx)
+        EEPROM.begin(512); // Emulate 512 bytes of EEPROM
+#endif
         // Check magic byte
         if (EEPROM.read(EEPROM_ADDR_MAGIC) != 0x42) {
             // First time init
@@ -54,6 +57,9 @@ public:
         defaults.faceIdx = 0;
         save(defaults);
         EEPROM.write(EEPROM_ADDR_MAGIC, 0x42);
+#if defined(STM32F4xx)
+        EEPROM.commit();
+#endif
     }
 
     static SystemSettings load() {
@@ -98,6 +104,9 @@ public:
         EEPROM.update(EEPROM_ADDR_STOCK_TYPE, s.stockType);
         EEPROM.update(EEPROM_ADDR_STOCK_IDX, s.stockIdx);
         EEPROM.update(EEPROM_ADDR_FACE_IDX, s.faceIdx);
+#if defined(STM32F4xx)
+        EEPROM.commit();
+#endif
     }
 };
 
