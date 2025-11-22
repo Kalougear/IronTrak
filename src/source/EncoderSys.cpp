@@ -1,4 +1,3 @@
-```cpp
 #include "headers/EncoderSys.h"
 
 EncoderSys::EncoderSys() {
@@ -21,15 +20,32 @@ void EncoderSys::init() {
     // Uses TIM4 (PB6/PB7) in Encoder Mode
     _timer = new HardwareTimer(TIM4);
     
-    // Configure channels for Encoder Mode (TI1 and TI2)
-    _timer->setMode(1, TIMER_INPUT_ENCODER_MODE12, PIN_ENCODER_A);
-    _timer->setMode(2, TIMER_INPUT_ENCODER_MODE12, PIN_ENCODER_B);
+    // HardwareTimer doesn't expose encoder mode directly, so we configure via HAL
+    // Stop the timer first
+    _timer->pause();
+    
+    // Get the HAL timer handle (returns pointer)
+    TIM_HandleTypeDef *halTimer = _timer->getHandle();
+    
+    // Configure encoder mode (both TI1 and TI2 on both edges)
+    TIM_Encoder_InitTypeDef encoderConfig;
+    encoderConfig.EncoderMode = TIM_ENCODERMODE_TI12;  // Count on both edges of both channels
+    encoderConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
+    encoderConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
+    encoderConfig.IC1Prescaler = TIM_ICPSC_DIV1;
+    encoderConfig.IC1Filter = 0;
+    encoderConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
+    encoderConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
+    encoderConfig.IC2Prescaler = TIM_ICPSC_DIV1;
+    encoderConfig.IC2Filter = 0;
+    
+    HAL_TIM_Encoder_Init(halTimer, &encoderConfig);
     
     // Set max count (16-bit timer)
-    _timer->setOverflow(65535); 
+    _timer->setOverflow(65535);
     
-    // Start the timer
-    _timer->resume();
+    // Start encoder mode
+    HAL_TIM_Encoder_Start(halTimer, TIM_CHANNEL_ALL);
     
     // Initialize state
     _timer->setCount(0);
@@ -120,4 +136,3 @@ void EncoderSys::recalculateCalibration() {
     float circumference = _wheelDiameter * PI;
     _mmPerPulse = circumference / PULSES_PER_REV;
 }
-```

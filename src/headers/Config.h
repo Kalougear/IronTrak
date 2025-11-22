@@ -1,3 +1,39 @@
+#ifndef CONFIG_H
+#define CONFIG_H
+
+#include <Arduino.h>
+
+// ============================================================================
+// HARDWARE DEFINITIONS (STM32F4 Black Pill)
+// ============================================================================
+// Encoder (TIM4)
+#define PIN_ENCODER_A           PB6
+#define PIN_ENCODER_B           PB7
+
+// Menu Encoder (KY-040)
+#define PIN_MENU_CLK            PB12
+#define PIN_MENU_DT             PB13
+#define PIN_MENU_SW             PB14
+
+// Display (I2C)
+#define PIN_LCD_SDA             PB9
+#define PIN_LCD_SCL             PB8
+
+// Display Settings
+#define LCD_COLS                20
+#define LCD_ROWS                4
+#define LCD_ADDR                0x27
+
+// Measurement Settings
+#define DEFAULT_WHEEL_DIA_MM    50.0
+#define ENCODER_PPR             600
+#define PULSES_PER_REV          (ENCODER_PPR * 4) // Quadrature decoding
+
+// ============================================================================
+// EEPROM ADDRESS MAP
+// ============================================================================
+#define EEPROM_ADDR_MAGIC       0   // Byte: Magic number (0x42)
+#define EEPROM_ADDR_DIA         4   // Float: Wheel Diameter
 #define EEPROM_ADDR_UNITS       8   // Byte: 0=MM, 1=INCH
 #define EEPROM_ADDR_DIR         9   // Byte: 0=Norm, 1=Rev
 #define EEPROM_ADDR_TOT_CUTS    10  // Long: Total Cuts
@@ -22,51 +58,32 @@
 // ============================================================================
 // STOCK LIBRARY (Metric)
 // ============================================================================
-static const char* STOCK_RECT_MM[] = {
-    "20x20", "20x40", "25x25", "30x30", "35x35", "40x40", "50x50"
-};
-static const uint8_t STOCK_RECT_MM_DIMS[][2] = {
-    {20,20}, {20,40}, {25,25}, {30,30}, {35,35}, {40,40}, {50,50}
-};
-static const uint8_t STOCK_RECT_MM_COUNT = 7;
+extern const char* STOCK_RECT_MM[];
+extern const uint8_t STOCK_RECT_MM_DIMS[][2];
+extern const uint8_t STOCK_RECT_MM_COUNT;
 
-static const char* STOCK_ANGLE_MM[] = {
-    "L20x20x3", "L25x25x3", "L30x30x3", "L40x40x4", "L50x50x5"
-};
-static const uint8_t STOCK_ANGLE_MM_DIMS[][3] = {
-    {20,20,3}, {25,25,3}, {30,30,3}, {40,40,4}, {50,50,5}
-};
-static const uint8_t STOCK_ANGLE_MM_COUNT = 5;
+extern const char* STOCK_ANGLE_MM[];
+extern const uint8_t STOCK_ANGLE_MM_DIMS[][3];
+extern const uint8_t STOCK_ANGLE_MM_COUNT;
 
-static const char* STOCK_CYL_MM[] = {
-    "D16", "D20", "D25", "D30", "D40"
-};
-static const uint8_t STOCK_CYL_MM_DIMS[] = {16, 20, 25, 30, 40};
-static const uint8_t STOCK_CYL_MM_COUNT = 5;
+extern const char* STOCK_CYL_MM[];
+extern const uint8_t STOCK_CYL_MM_DIMS[];
+extern const uint8_t STOCK_CYL_MM_COUNT;
 
 // ============================================================================
 // STOCK LIBRARY (Imperial)
 // ============================================================================
-static const char* STOCK_RECT_IN[] = {
-    "1/2x1/2", "1x1", "1x2", "2x2"
-};
-static const float STOCK_RECT_IN_DIMS[][2] = {
-    {12.7,12.7}, {25.4,25.4}, {25.4,50.8}, {50.8,50.8}
-};
-static const uint8_t STOCK_RECT_IN_COUNT = 4;
+extern const char* STOCK_RECT_IN[];
+extern const float STOCK_RECT_IN_DIMS[][2];
+extern const uint8_t STOCK_RECT_IN_COUNT;
 
-static const char* STOCK_ANGLE_IN[] = {
-    "L1x1x1/8", "L1.5x1.5x1/8", "L2x2x1/8"
-};
-static const float STOCK_ANGLE_IN_DIMS[][3] = {
-    {25.4,25.4,3.2}, {38.1,38.1,3.2}, {50.8,50.8,3.2}
-};
-static const uint8_t STOCK_ANGLE_IN_COUNT = 3;
+extern const char* STOCK_ANGLE_IN[];
+extern const float STOCK_ANGLE_IN_DIMS[][3];
+extern const uint8_t STOCK_ANGLE_IN_COUNT;
 
-static const char* STOCK_CYL_IN[] = {
-    "D1/2", "D3/4", "D1", "D1.5"
-};
-static const float STOCK_CYL_IN_DIMS[] = {12.7, 19.05, 25.4, 38.1};
-static const uint8_t STOCK_CYL_IN_COUNT = 4;
+extern const char* STOCK_CYL_IN[];
+extern const float STOCK_CYL_IN_DIMS[];
+extern const uint8_t STOCK_CYL_IN_COUNT;
 
 #endif // CONFIG_H
+

@@ -1,7 +1,7 @@
 #include "headers/DisplaySys.h"
 
 DisplaySys::DisplaySys() {
-    _lcd = new LiquidCrystal_I2C(LCD_I2C_ADDR, LCD_COLS, LCD_ROWS);
+    _lcd = new LiquidCrystal_I2C(LCD_ADDR, LCD_COLS, LCD_ROWS);
     _lastMM = -999.9;
     _lastIsInch = false;
     for (int i = 0; i < 4; i++) {

@@ -1,7 +1,7 @@
 # IronTrak - Professional Bandsaw Measurement System
 
 ![Status](https://img.shields.io/badge/Status-Phase%202%20Complete-success)
-![Platform](https://img.shields.io/badge/Platform-Arduino%20Nano-blue)
+![Platform](https://img.shields.io/badge/Platform-STM32F4-blue)
 ![License](https://img.shields.io/badge/License-Open%20Source-green)
 
 ## 🎯 Project Overview
@@ -25,7 +25,7 @@
 See [docs/BOM.md](docs/BOM.md) for complete parts list (~$50-70 total)
 
 **Essential Components:**
-- Arduino Nano (ATmega328P)
+- STM32F4 Black Pill (STM32F411CEU6)
 - 600 PPR Industrial Optical Encoder
 - 20×4 LCD with I2C
 - KY-040 Rotary Encoder (menu input)
@@ -160,13 +160,13 @@ Quick reference screen shows:
 
 | Parameter | Value |
 |-----------|-------|
-| **MCU** | ATmega328P @16MHz |
+| **MCU** | STM32F411CEU6 @ 96MHz |
 | **Resolution** | 0.13mm (50mm wheel) |
 | **Max Speed** | 300 RPM |
 | **Update Rate** | 1ms |
 | **Display** | 20×4 LCD, I2C |
 | **Power** | 5VDC, <300mA |
-| **Memory** | 1.2KB RAM, 20KB Flash |
+| **Memory** | 128KB RAM, 512KB Flash |
 | **EEPROM** | 43 bytes used |
 | **Accuracy** | ±0.5mm over 1000mm |
 
