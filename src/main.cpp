@@ -112,55 +112,163 @@ uint8_t getFaceValue() {
 // SETUP
 // ============================================================================
 void setup() {
-    // 1. Initialize Serial
+    // ===== ABSOLUTE FIRST - Serial Debug BEFORE anything else =====
+    Serial1.setRx(PA10);
+    Serial1.setTx(PA9);
+    Serial1.begin(115200);
+    Serial1.println("\n\n*** BOOT START ***");
+    
+    // LED & Boot sequence
+    pinMode(PC13, OUTPUT);
+    digitalWrite(PC13, HIGH);  // LED off initially
+    Serial1.println("LED configured");
+    
+    // Blink 3 times on boot
+    for (int i = 0; i < 3; i++) {
+        digitalWrite(PC13, LOW);
+        delay(200);
+        digitalWrite(PC13, HIGH);
+        delay(200);
+    }
+    Serial1.println("Boot blink complete");
+    
+    Serial1.println("========================================");
+    Serial1.println("  IronTrak STM32F4 Boot Sequence");
+    Serial1.println("========================================");
+    
+    // USB CDC
     Serial.begin(SERIAL_BAUD_RATE);
-    // Wait for USB Serial on STM32 (optional, but good for debug)
-    #if defined(STM32F4xx)
-    delay(2000); 
-    #endif
-    Serial.println(F("IronTrak Phase 2 Booting..."));
+    delay(100);
+    Serial1.println("USB CDC initialized");
 
     // 2. Initialize Subsystems
+    Serial1.println("Initializing Storage...");
     Storage::init();
+    Serial1.println("Storage OK");
+    
+    Serial1.println("Loading settings...");
     settings = Storage::load();
+    Serial1.println("Settings loaded OK");
     
+    // RAW I2C TEST - Before any library init
+    Serial1.println("=== RAW I2C TEST ===");
+    
+    // Enable internal pull-ups on I2C pins (4.7kΩ - 10kΩ typically needed)
+    pinMode(PB9, INPUT_PULLUP);  // SDA
+    pinMode(PB8, INPUT_PULLUP);  // SCL
+    delay(10);
+    
+    Wire.setSDA(PB9);
+    Wire.setSCL(PB8);
+    Wire.begin();
+    Wire.setClock(100000); // 100kHz (slow and reliable)
+    delay(100);
+    
+    Serial1.println("I2C pins configured: PB9(SDA), PB8(SCL)");
+    Serial1.println("Scanning I2C (raw)...");
+    byte found = 0;
+    for (byte addr = 1; addr < 127; addr++) {
+        Wire.beginTransmission(addr);
+        if (Wire.endTransmission() == 0) {
+            Serial1.print("  -> 0x");
+            if (addr < 16) Serial1.print("0");
+            Serial1.println(addr, HEX);
+            found++;
+        }
+    }
+    Serial1.print("Found ");
+    Serial1.print(found);
+    Serial1.println(" device(s)");
+    Serial1.println("===================");
+    
+    Serial1.println("Initializing Display (20x4 LCD I2C)...");
     displaySys.init();
-    encoderSys.init();
-    encoderSys.setWheelDiameter(settings.wheelDiameter);
+    Serial1.println("Display OK");
     
+    // I2C Scanner - find what address the LCD is actually at
+    Serial1.println("Scanning I2C bus...");
+    // Wire was already initialized in displaySys.init(), but let's be sure
+    Wire.begin();
+    delay(100);
+    
+    byte deviceCount = 0;
+    for (byte addr = 1; addr < 127; addr++) {
+        Wire.beginTransmission(addr);
+        byte error = Wire.endTransmission();
+        if (error == 0) {
+            Serial1.print("Found I2C device at 0x");
+            if (addr < 16) Serial1.print("0");
+            Serial1.println(addr, HEX);
+            deviceCount++;
+        }
+    }
+    if (deviceCount == 0) {
+        Serial1.println("WARNING: NO I2C devices found! Check wiring!");
+    } else {
+        Serial1.print("I2C scan complete - found ");
+        Serial1.print(deviceCount);
+        Serial1.println(" device(s)");
+    }
+    
+    // Test: Write to LCD via displaySys
+    Serial1.println("Testing LCD write at 0x27...");
+    displaySys.showError("** BOOT TEST **");
+    Serial1.println("Message sent to LCD");
+    delay(3000);  // Hold for 3s
+    displaySys.clear();
+    
+    Serial1.println("Initializing Encoder (TIM4 Hardware)...");
+    encoderSys.init();
+    Serial1.println("Encoder init OK");
+    
+    encoderSys.setWheelDiameter(settings.wheelDiameter);
+    Serial1.println("Encoder calibrated");
+    
+    Serial1.println("Initializing User Input (KY-040)...");
     userInput.init();
+    Serial1.println("UserInput OK");
+    
+    Serial1.println("Initializing Stats System...");
     statsSys.init(&settings);
+    Serial1.println("Stats OK");
+    
+    Serial1.println("Initializing Menu System...");
     menuSys.init(&settings, &statsSys);
+    Serial1.println("Menu OK");
 
     // 3. Configure Timer for 1kHz Interrupt
+    Serial1.println("Configuring TIM3 for 1kHz tick...");
 #if defined(STM32F4xx)
-    // Use TIM3 (since TIM4 is Encoder, TIM1 is advanced)
-    // TIM3 is general purpose 16-bit
     tickTimer = new HardwareTimer(TIM3);
-    tickTimer->setOverflow(1000, HERTZ_FORMAT); // 1kHz
+    tickTimer->setOverflow(1000, HERTZ_FORMAT);
     tickTimer->attachInterrupt(Timer1_Callback);
     tickTimer->resume();
+    Serial1.println("TIM3 OK");
 #else
     noInterrupts();
     TCCR1A = 0;
     TCCR1B = 0;
     TCNT1  = 0;
-    
-    OCR1A = 249;            // Compare match register 16MHz/64/1000Hz
-    TCCR1B |= (1 << WGM12); // CTC mode
-    TCCR1B |= (1 << CS11) | (1 << CS10); // 64 prescaler
-    TIMSK1 |= (1 << OCIE1A); // Enable timer compare interrupt
+    OCR1A = 249;
+    TCCR1B |= (1 << WGM12);
+    TCCR1B |= (1 << CS11) | (1 << CS10);
+    TIMSK1 |= (1 << OCIE1A);
     interrupts();
 #endif
 
     // 4. Enable Watchdog Timer (2 Seconds)
-#if defined(STM32F4xx)
-    IWatchdog.begin(2000000); // 2s in microseconds
-#else
-    wdt_enable(WDTO_2S);
-#endif
+    Serial1.println("Watchdog DISABLED for debugging...");
+    // TEMPORARILY DISABLED - causing resets in loop
+    //#if defined(STM32F4xx)
+    //    IWatchdog.begin(2000000);
+    //    Serial1.println("Watchdog OK");
+    //#else
+    //    wdt_enable(WDTO_2S);
+    //#endif
     
-    Serial.println(F("System Ready. Phase 2 Active."));
+    Serial1.println("========================================");
+    Serial1.println("   SYSTEM READY - ENTERING MAIN LOOP");
+    Serial1.println("========================================");
 }
 
 // ============================================================================
@@ -168,9 +276,9 @@ void setup() {
 // ============================================================================
 void loop() {
 #if defined(STM32F4xx)
-    IWatchdog.reload();
+    // IWatchdog.reload();  // DISABLED
 #else
-    wdt_reset();
+    // wdt_reset();  // DISABLED
 #endif
 
     // 1. Handle User Input
@@ -202,11 +310,15 @@ void loop() {
                     // Double-click! Toggle mode
                     settings.cutMode = (settings.cutMode == 0) ? 1 : 0;
                     Storage::save(settings);
+                    Serial1.println("Mode toggled via double-click");
                     lastClickTime = 0;  // Reset
                 } else {
                     // Single click: Register Cut + Zero
                     statsSys.registerCut(currentMM);
                     encoderSys.reset();
+                    Serial1.print("Cut registered: ");
+                    Serial1.print(currentMM);
+                    Serial1.println("mm, encoder reset");
                     lastClickTime = now;
                     
                     // Reset Auto-Zero state
@@ -217,6 +329,7 @@ void loop() {
                 currentState = STATE_MENU;
                 displaySys.clear();
                 menuSys.init(&settings, &statsSys);
+                Serial1.println("Entering menu...");
             } else if (event == EVENT_CW || event == EVENT_CCW) {
                 // Knob in Idle
                 if (settings.cutMode > 0 && settings.stockType == 0) {
@@ -237,6 +350,7 @@ void loop() {
                             // Lock position after 5s
                             lockedPosition = currentMM;
                             azState = AZ_ARMED;
+                            Serial1.println("Auto-Zero ARMED");
                         }
                     } else {
                         // Stock moving
@@ -253,6 +367,7 @@ void loop() {
                         float offset = currentMM - lockedPosition;
                         encoderSys.setOffset(offset);
                         
+                        Serial1.println("Auto-Zero TRIGGERED!");
                         azState = AZ_MEASURING;
                         stillnessStartTime = millis();
                     }
@@ -271,6 +386,7 @@ void loop() {
                 // Menu requested exit
                 currentState = STATE_IDLE;
                 displaySys.clear();
+                Serial1.println("Exiting menu...");
                 // Apply new settings
                 encoderSys.setWheelDiameter(settings.wheelDiameter);
                 // Reset Auto-Zero

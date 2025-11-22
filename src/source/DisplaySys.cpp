@@ -12,9 +12,10 @@ DisplaySys::DisplaySys() {
 void DisplaySys::init() {
 #if defined(STM32F4xx)
     // Explicitly set I2C pins for STM32 (PB8/PB9)
-    // Must be done before lcd.init() which calls Wire.begin()
+    // Must be done before Wire.begin()
     Wire.setSDA(PIN_LCD_SDA);
     Wire.setSCL(PIN_LCD_SCL);
+    Wire.begin(); // Initialize I2C bus
 #endif
     _lcd->init();
     _lcd->backlight();

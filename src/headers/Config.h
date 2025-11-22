@@ -15,9 +15,9 @@
 #define PIN_MENU_DT             PB13
 #define PIN_MENU_SW             PB14
 
-// Display (I2C)
-#define PIN_LCD_SDA             PB9
-#define PIN_LCD_SCL             PB8
+// Display (I2C) - Using PB8/PB9 with external 4.7k pull-ups
+#define PIN_LCD_SDA             PB9   // SDA with 4.7kΩ to 3.3V
+#define PIN_LCD_SCL             PB8   // SCL with 4.7kΩ to 3.3V
 
 // Display Settings
 #define LCD_COLS                20

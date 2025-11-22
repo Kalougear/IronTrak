@@ -9,8 +9,8 @@
 | **Green** | CLK | **SWCLK (PA14)** | Clock Signal |
 | **Yellow** | TMS / SWDIO | **SWDIO (PA13)** | Data Signal |
 | **Black** | GND | **G (GND)** | Ground |
-| **White** | RX (ST-Link Input) | **A9 (TX1)** | Serial Console (Board → PC) |
-| **Brown** | TX (ST-Link Output) | **A10 (RX1)** | Serial Console (PC → Board) |
+| **White** | RX (ST-Link Input) | **A10 (RX1)** | Serial Console (PC → Board) |
+| **Brown** | TX (ST-Link Output) | **A9 (TX1)** | Serial Console (Board → PC) |
 | **Orange** | RST | **NRST (R)** | Reset (Optional) |
 | **Red** | VCC (Sense) | **3.3V** | Voltage Reference |
 
@@ -48,10 +48,10 @@ The serial wires cross over because data flows in opposite directions:
 
 | ST-Link Side | Direction | Black Pill Side |
 | :--- | :---: | :--- |
-| **RX** (White) receives | ← | **TX** (A9) transmits |
-| **TX** (Brown) transmits | → | **RX** (A10) receives |
+| **RX** (White) receives | ← | **RX** (A10) receives |
+| **TX** (Brown) transmits | → | **TX** (A9) transmits |
 
-**Mnemonic:** "ST-Link RX connects to Black Pill TX" (receiver gets transmitter's data)
+**Note:** On your specific cable, White and Brown connect to the matching function (RX→RX, TX→TX), not crossed over.
 
 ---
 
