@@ -150,72 +150,9 @@ void setup() {
     settings = Storage::load();
     Serial1.println("Settings loaded OK");
     
-    // RAW I2C TEST - Before any library init
-    Serial1.println("=== RAW I2C TEST ===");
-    
-    // Enable internal pull-ups on I2C pins (4.7kΩ - 10kΩ typically needed)
-    pinMode(PB9, INPUT_PULLUP);  // SDA
-    pinMode(PB8, INPUT_PULLUP);  // SCL
-    delay(10);
-    
-    Wire.setSDA(PB9);
-    Wire.setSCL(PB8);
-    Wire.begin();
-    Wire.setClock(100000); // 100kHz (slow and reliable)
-    delay(100);
-    
-    Serial1.println("I2C pins configured: PB9(SDA), PB8(SCL)");
-    Serial1.println("Scanning I2C (raw)...");
-    byte found = 0;
-    for (byte addr = 1; addr < 127; addr++) {
-        Wire.beginTransmission(addr);
-        if (Wire.endTransmission() == 0) {
-            Serial1.print("  -> 0x");
-            if (addr < 16) Serial1.print("0");
-            Serial1.println(addr, HEX);
-            found++;
-        }
-    }
-    Serial1.print("Found ");
-    Serial1.print(found);
-    Serial1.println(" device(s)");
-    Serial1.println("===================");
-    
     Serial1.println("Initializing Display (20x4 LCD I2C)...");
     displaySys.init();
     Serial1.println("Display OK");
-    
-    // I2C Scanner - find what address the LCD is actually at
-    Serial1.println("Scanning I2C bus...");
-    // Wire was already initialized in displaySys.init(), but let's be sure
-    Wire.begin();
-    delay(100);
-    
-    byte deviceCount = 0;
-    for (byte addr = 1; addr < 127; addr++) {
-        Wire.beginTransmission(addr);
-        byte error = Wire.endTransmission();
-        if (error == 0) {
-            Serial1.print("Found I2C device at 0x");
-            if (addr < 16) Serial1.print("0");
-            Serial1.println(addr, HEX);
-            deviceCount++;
-        }
-    }
-    if (deviceCount == 0) {
-        Serial1.println("WARNING: NO I2C devices found! Check wiring!");
-    } else {
-        Serial1.print("I2C scan complete - found ");
-        Serial1.print(deviceCount);
-        Serial1.println(" device(s)");
-    }
-    
-    // Test: Write to LCD via displaySys
-    Serial1.println("Testing LCD write at 0x27...");
-    displaySys.showError("** BOOT TEST **");
-    Serial1.println("Message sent to LCD");
-    delay(3000);  // Hold for 3s
-    displaySys.clear();
     
     Serial1.println("Initializing Encoder (TIM4 Hardware)...");
     encoderSys.init();
@@ -257,14 +194,13 @@ void setup() {
 #endif
 
     // 4. Enable Watchdog Timer (2 Seconds)
-    Serial1.println("Watchdog DISABLED for debugging...");
-    // TEMPORARILY DISABLED - causing resets in loop
-    //#if defined(STM32F4xx)
-    //    IWatchdog.begin(2000000);
-    //    Serial1.println("Watchdog OK");
-    //#else
-    //    wdt_enable(WDTO_2S);
-    //#endif
+    Serial1.println("Enabling Watchdog (2s timeout)...");
+#if defined(STM32F4xx)
+    IWatchdog.begin(2000000);
+    Serial1.println("Watchdog OK");
+#else
+    wdt_enable(WDTO_2S);
+#endif
     
     Serial1.println("========================================");
     Serial1.println("   SYSTEM READY - ENTERING MAIN LOOP");
@@ -276,9 +212,9 @@ void setup() {
 // ============================================================================
 void loop() {
 #if defined(STM32F4xx)
-    // IWatchdog.reload();  // DISABLED
+    IWatchdog.reload();
 #else
-    // wdt_reset();  // DISABLED
+    wdt_reset();
 #endif
 
     // 1. Handle User Input

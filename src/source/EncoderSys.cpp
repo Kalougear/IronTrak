@@ -16,9 +16,27 @@ EncoderSys::EncoderSys() {
 
 void EncoderSys::init() {
 #if defined(STM32F4xx)
-    // STM32 Hardware Timer Implementation
-    // Uses TIM4 (PB6/PB7) in Encoder Mode
+    // 1. Configure Pins FIRST (Enable Pull-ups)
+    pinMode(PB6, INPUT_PULLUP);
+    pinMode(PB7, INPUT_PULLUP);
+
+    // 2. Initialize Hardware Timer
     _timer = new HardwareTimer(TIM4);
+    
+    // 3. EXPLICITLY Force GPIO to Alternate Function Mode (AF2 for TIM4)
+    // pinMode sets them to Input, which disconnects the timer. We must reconnect it.
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
+    
+    // Enable GPIOB Clock
+    __HAL_RCC_GPIOB_CLK_ENABLE();
+    
+    // Configure PB6 & PB7 as Alternate Function (TIM4)
+    GPIO_InitStruct.Pin = GPIO_PIN_6 | GPIO_PIN_7;
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+    GPIO_InitStruct.Pull = GPIO_PULLUP; // Keep pull-ups enabled!
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+    GPIO_InitStruct.Alternate = GPIO_AF2_TIM4;
+    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
     
     // HardwareTimer doesn't expose encoder mode directly, so we configure via HAL
     // Stop the timer first
@@ -33,16 +51,23 @@ void EncoderSys::init() {
     encoderConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
     encoderConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
     encoderConfig.IC1Prescaler = TIM_ICPSC_DIV1;
-    encoderConfig.IC1Filter = 0;
+    encoderConfig.IC1Filter = 0x0F; // Add some filtering (0-15)
     encoderConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
     encoderConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
     encoderConfig.IC2Prescaler = TIM_ICPSC_DIV1;
-    encoderConfig.IC2Filter = 0;
+    encoderConfig.IC2Filter = 0x0F; // Add some filtering
     
-    HAL_TIM_Encoder_Init(halTimer, &encoderConfig);
+    if (HAL_TIM_Encoder_Init(halTimer, &encoderConfig) != HAL_OK) {
+        // Error handling if needed
+    }
+    
+    // Start the encoder!
+    HAL_TIM_Encoder_Start(halTimer, TIM_CHANNEL_ALL);
     
     // Set max count (16-bit timer)
     _timer->setOverflow(65535);
+    _timer->setCount(0);
+    _timer->resume();
     
     // Start encoder mode
     HAL_TIM_Encoder_Start(halTimer, TIM_CHANNEL_ALL);
