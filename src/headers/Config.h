@@ -26,7 +26,7 @@
 
 // Measurement Settings
 #define DEFAULT_WHEEL_DIA_MM    50.0
-#define ENCODER_PPR             600
+#define ENCODER_PPR             1024
 #define PULSES_PER_REV          (ENCODER_PPR * 4) // Quadrature decoding
 
 // ============================================================================
