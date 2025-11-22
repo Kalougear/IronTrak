@@ -27,46 +27,53 @@ void DisplaySys::update() {
 }
 
 void DisplaySys::showIdle(float lengthMM, float targetMM, uint8_t cutMode, const char* stockStr, uint8_t faceVal, bool isInch) {
-    // Line 0: Length and Target
-    String line0 = "Len:";
-    if (isInch) {
-        float lenInch = lengthMM / 25.4;
-        line0 += String(lenInch, 2) + "\"";
-    } else {
-        line0 += String(lengthMM, 1);
-    }
+    // ==========================================
+    // NEW PREMIUM LAYOUT
+    // ==========================================
+    // Row 0:      2143.5 mm       (Centered)
+    // Row 1: -------------------- (Separator)
+    // Row 2: Stock: 20x20         (Stock Info)
+    // Row 3: Angle: 0 deg         (Cut Info)
+    // ==========================================
+
+    // --- Line 0: Measurement (Centered) ---
+    String lenStr = String(lengthMM, 1);
+    String unitStr = isInch ? "in" : "mm";
+    String mainVal = lenStr + " " + unitStr;
     
-    // Add target if in angle mode
-    if (cutMode > 0) {  // Not 0° mode
-        line0 += "  Tgt:";
-        if (isInch) {
-            line0 += String(targetMM / 25.4, 2);
-        } else {
-            line0 += String(targetMM, 1);
-        }
-    }
+    // Center the value
+    int padding = (20 - mainVal.length()) / 2;
+    if (padding < 0) padding = 0;
     
-    // Line 1: Empty or unit indicator
-    String line1 = isInch ? "        (inches)" : "         (mm)";
+    String line0 = "";
+    for(int i=0; i<padding; i++) line0 += " ";
+    line0 += mainVal;
+    // Fill rest with spaces
+    while(line0.length() < 20) line0 += " ";
     
-    // Line 2: Mode and Stock
-    String line2 = "[";
-    if (cutMode == 0) {
-        line2 += "0";
-    } else if (cutMode == 1) {
-        line2 += "45";
-    } else {
-        line2 += "??";
-    }
-    line2 += "] " + String(stockStr);
+    // --- Line 1: Separator ---
+    String line1 = "--------------------";
     
-    // Line 3: Face selection (if applicable)
-    String line3 = "";
+    // --- Line 2: Stock Info ---
+    String line2 = "Stock: " + String(stockStr);
+    // Pad to 20
+    while(line2.length() < 20) line2 += " ";
+    
+    // --- Line 3: Angle / Mode ---
+    String line3 = "Angle: ";
+    if (cutMode == 0) line3 += "0 deg";
+    else if (cutMode == 1) line3 += "45 deg";
+    else line3 += "Custom";
+    
+    // Add Face info if relevant
     if (cutMode > 0 && faceVal > 0) {
-        line3 = "Face: " + String(faceVal) + (isInch ? "\"" : "mm");
+        line3 = "F:" + String(faceVal) + " " + line3;
     }
     
-    // Only update if changed (prevent flicker)
+    // Pad to 20
+    while(line3.length() < 20) line3 += " ";
+    
+    // --- Update LCD (Only if changed) ---
     if (line0 != _lastLine[0]) {
         printLine(0, line0);
         _lastLine[0] = line0;
