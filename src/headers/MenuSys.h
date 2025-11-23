@@ -54,6 +54,8 @@ private:
     int8_t _calibStep;    // For auto-calib wizard
     long _calibPulses;
     float _calibRealLen;
+    unsigned long _lastCalibAdjustTime; // For acceleration
+    uint8_t _calibAdjustSpeed;  // 0=slow, 1=medium, 2=fast
     
     // Stock selection state
     int8_t _stockPage;  // 0=Type selection, 1=Size selection, 2=Face selection

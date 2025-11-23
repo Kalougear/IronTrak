@@ -102,7 +102,7 @@ void UserInput::handleButton() {
         stableCount = 0;
     }
     
-    // Long press check (3s for menu, 10s for hidden info)
+    // Long press check (1s for menu, 10s for hidden info)
     if (lastStableState == LOW) {
         unsigned long pressedDuration = millis() - _btnPressTime;
         
@@ -110,9 +110,10 @@ void UserInput::handleButton() {
             _pendingEvent = EVENT_SUPER_LONG_PRESS;
             _superLongPressHandled = true;
             _longPressHandled = true;  // Also mark long press as handled
-        } else if (!_longPressHandled && pressedDuration > 3000) {  // 3 seconds
+        } else if (!_longPressHandled && pressedDuration > 1000) {  // 1 second
             _pendingEvent = EVENT_LONG_PRESS;
             _longPressHandled = true;
         }
     }
+
 }

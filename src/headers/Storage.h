@@ -6,7 +6,8 @@
 #include <IWatchdog.h> // Include IWatchdog for reload()
 #include "Config.h"
 
-struct SystemSettings {
+struct SystemSettings
+{
     float wheelDiameter;
     bool isInch;
     bool reverseDirection;
@@ -14,38 +15,42 @@ struct SystemSettings {
     float totalLengthMeters;
     unsigned long projectCuts;
     float projectLengthMeters;
-    
+
     // Phase 2 Settings
-    float kerfMM;                  // Blade thickness
-    bool autoZeroEnabled;          // Auto-Zero feature on/off
-    float autoZeroThresholdMM;     // Motion threshold for trigger
-    uint8_t cutMode;               // 0=0°, 1=45°, 2=Custom
-    float cutAngle;                // Custom angle in degrees
-    uint8_t stockType;             // 0=Rect, 1=Angle, 2=Cyl
-    uint8_t stockIdx;              // Index into stock table
-    uint8_t faceIdx;               // Face selection (0 or 1)
-    
+    float kerfMM;              // Blade thickness
+    bool autoZeroEnabled;      // Auto-Zero feature on/off
+    float autoZeroThresholdMM; // Motion threshold for trigger
+    uint8_t cutMode;           // 0=0°, 1=45°, 2=Custom
+    float cutAngle;            // Custom angle in degrees
+    uint8_t stockType;         // 0=Rect, 1=Angle, 2=Cyl
+    uint8_t stockIdx;          // Index into stock table
+    uint8_t faceIdx;           // Face selection (0 or 1)
+
     // Time & Cost
     float hourlyRate;
     unsigned long projectSeconds;
     unsigned long totalSeconds;
 };
 
-class Storage {
+class Storage
+{
 public:
-    static void init() {
+    static void init()
+    {
 #if defined(STM32F4xx)
         // STM32 EEPROM emulation setup
-        EEPROM.begin(); 
+        EEPROM.begin();
 #endif
         // Check magic byte
-        if (EEPROM.read(EEPROM_ADDR_MAGIC) != 0x42) {
+        if (EEPROM.read(EEPROM_ADDR_MAGIC) != 0x42)
+        {
             // First time init
             resetDefaults();
         }
     }
 
-    static void resetDefaults() {
+    static void resetDefaults()
+    {
         SystemSettings defaults;
         defaults.wheelDiameter = DEFAULT_WHEEL_DIA_MM;
         defaults.isInch = false;
@@ -62,24 +67,26 @@ public:
         defaults.stockType = 0; // Rectangular
         defaults.stockIdx = 0;
         defaults.faceIdx = 0;
-        
-        defaults.hourlyRate = 50.0; // Default $50/hr
+
+        defaults.hourlyRate = 30.0; // Default $50/hr
         defaults.projectSeconds = 0;
         defaults.totalSeconds = 0;
-        
+
         save(defaults);
         EEPROM.write(EEPROM_ADDR_MAGIC, 0x42);
     }
 
-    static SystemSettings load() {
+    static SystemSettings load()
+    {
         SystemSettings s;
         EEPROM.get(EEPROM_ADDR_DIA, s.wheelDiameter);
-        
+
         // Sanity check
-        if (isnan(s.wheelDiameter) || s.wheelDiameter < 10.0 || s.wheelDiameter > 500.0) {
+        if (isnan(s.wheelDiameter) || s.wheelDiameter < 10.0 || s.wheelDiameter > 500.0)
+        {
             s.wheelDiameter = DEFAULT_WHEEL_DIA_MM;
         }
-        
+
         s.isInch = EEPROM.read(EEPROM_ADDR_UNITS);
         s.reverseDirection = EEPROM.read(EEPROM_ADDR_DIR);
         EEPROM.get(EEPROM_ADDR_TOT_CUTS, s.totalCuts);
@@ -97,10 +104,26 @@ public:
         EEPROM.get(EEPROM_ADDR_HOURLY_RATE, s.hourlyRate);
         EEPROM.get(EEPROM_ADDR_PROJ_SEC, s.projectSeconds);
         EEPROM.get(EEPROM_ADDR_TOT_SEC, s.totalSeconds);
+
+        // Sanity check for new fields (in case EEPROM has garbage from old firmware)
+        if (isnan(s.hourlyRate) || s.hourlyRate < 0 || s.hourlyRate > 1000)
+        {
+            s.hourlyRate = 50.0;
+        }
+        if (s.projectSeconds > 86400000UL)
+        { // More than 1000 days? Invalid
+            s.projectSeconds = 0;
+        }
+        if (s.totalSeconds > 86400000UL)
+        {
+            s.totalSeconds = 0;
+        }
+
         return s;
     }
 
-    static void save(const SystemSettings& s) {
+    static void save(const SystemSettings &s)
+    {
 #if defined(STM32F4xx)
         IWatchdog.reload(); // Feed watchdog before heavy write
 #endif

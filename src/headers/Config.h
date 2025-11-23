@@ -32,6 +32,21 @@
 // ============================================================================
 // EEPROM ADDRESS MAP
 // ============================================================================
+#define EEPROM_ADDR_MAGIC       0   // Byte: Magic number (0x42)
+#define EEPROM_ADDR_DIA         4   // Float: Wheel Diameter
+#define EEPROM_ADDR_UNITS       8   // Byte: 0=MM, 1=INCH
+#define EEPROM_ADDR_DIR         9   // Byte: 0=Norm, 1=Rev
+#define EEPROM_ADDR_TOT_CUTS    10  // Long: Total Cuts
+#define EEPROM_ADDR_TOT_LEN     14  // Float: Total Length (Meters)
+#define EEPROM_ADDR_PROJ_CUTS   18  // Long: Project Cuts
+#define EEPROM_ADDR_PROJ_LEN    22  // Float: Project Length (Meters)
+#define EEPROM_ADDR_KERF        26  // Float: Blade thickness in mm
+#define EEPROM_ADDR_AUTO_ZERO_EN 30 // Byte: Auto-Zero enabled (0/1)
+#define EEPROM_ADDR_AUTO_ZERO_TH 31 // Float: Auto-Zero threshold in mm
+#define EEPROM_ADDR_CUT_MODE    35  // Byte: 0=0°, 1=45°, etc.
+#define EEPROM_ADDR_CUT_ANGLE   36  // Float: Custom angle in degrees
+#define EEPROM_ADDR_STOCK_TYPE  40  // Byte: 0=Rect, 1=Angle, 2=Cyl
+#define EEPROM_ADDR_STOCK_IDX   41  // Byte: Index into stock table
 #define EEPROM_ADDR_FACE_IDX    42  // Byte: Face selection index
 #define EEPROM_ADDR_HOURLY_RATE 43  // Float: Hourly Rate
 #define EEPROM_ADDR_PROJ_SEC    47  // Long: Project Seconds

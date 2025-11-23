@@ -297,10 +297,9 @@ void loop() {
                     azState = AZ_DISABLED;
                 }
             } else if (event == EVENT_LONG_PRESS) {
-                // Enter Menu
-                currentState = STATE_MENU;
-                displaySys.clear();
+                // Enter Menu - Overwrite idle screen directly for instant transition
                 menuSys.init(&settings, &statsSys);
+                currentState = STATE_MENU;
                 Serial1.println("Entering menu...");
             } else if (event == EVENT_CW || event == EVENT_CCW) {
                 // Knob in Idle - only in angle mode with rectangular stock
@@ -331,13 +330,25 @@ void loop() {
                 } else if (azState == AZ_ARMED) {
                     // Wait for movement threshold
                     if (abs(currentMM - lockedPosition) > settings.autoZeroThresholdMM) {
-                        // Triggered!
+                        // Triggered! Register cut and shift zero point
                         statsSys.registerCut(lockedPosition);
-                        encoderSys.reset();
-                        float offset = currentMM - lockedPosition;
-                        encoderSys.setOffset(offset);
                         
-                        Serial1.println("Auto-Zero TRIGGERED!");
+                        // Set offset to locked position so display shows distance from that point
+                        // Example: Locked at 100mm, now at 105mm → offset=100 → display shows 5mm
+                        long rawCount = encoderSys.getRawCount();
+                        float mmPerPulse = encoderSys.getWheelDiameter() * PI / PULSES_PER_REV;
+                        float absolutePosition = rawCount * mmPerPulse;  // Raw physical position
+                        float currentOffset = absolutePosition - currentMM;  // Back-calculate current offset
+                        float newOffset = currentOffset + lockedPosition;   // Shift by locked amount
+                        encoderSys.setOffset(newOffset);
+                        
+                        Serial1.print("Auto-Zero TRIGGERED! Locked: ");
+                        Serial1.print(lockedPosition);
+                        Serial1.print("mm, Current: ");
+                        Serial1.print(currentMM);
+                        Serial1.print("mm, New display should show: ");
+                        Serial1.println(currentMM - lockedPosition);
+                        
                         azState = AZ_MEASURING;
                         stillnessStartTime = millis();
                     }
@@ -346,7 +357,9 @@ void loop() {
             
             // Update display (if not in hidden menu)
             if (!hiddenMenuActive) {
-                displaySys.showIdle(currentMM, targetMM, settings.cutMode, settings.stockType, stockStr, faceVal, settings.isInch);
+                // Freeze display at locked position when Auto-Zero is armed (prevents jiggle confusion)
+                float displayMM = (azState == AZ_ARMED) ? lockedPosition : currentMM;
+                displaySys.showIdle(displayMM, targetMM, settings.cutMode, settings.stockType, stockStr, faceVal, settings.isInch);
             }
             break;
         }
@@ -356,9 +369,8 @@ void loop() {
             InputEvent semanticEvent = toSemanticEvent(event);
             
             if (!menuSys.update(semanticEvent, &displaySys, &encoderSys)) {
-                // Menu requested exit
+                // Menu requested exit - Overwrite with idle screen directly
                 currentState = STATE_IDLE;
-                displaySys.clear();
                 Serial1.println("Exiting menu...");
                 // Apply new settings
                 encoderSys.setWheelDiameter(settings.wheelDiameter);

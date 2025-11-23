@@ -29,15 +29,18 @@ void DisplaySys::update() {
 
 void DisplaySys::showIdle(float currentMM, float targetMM, uint8_t cutMode, uint8_t stockType, const char* stockStr, uint8_t faceVal, bool isInch) {
     // ==========================================
-    // NEW PREMIUM LAYOUT
+    // MEASUREMENT-FIRST LAYOUT
     // ==========================================
-    // Row 0:      12.3 CM         (Centered)
-    // Row 1: -------------------- (Separator)
-    // Row 2: STOCK: [ICON] 20x40  (Stock Info)
-    // Row 3: ANGLE: 45   FACE: 20 (Cut Info)
+    // Row 0: ══════════════════ (Top frame)
+    // Row 1:     52.3 CM        (HERO - centered)
+    // Row 2: ══════════════════ (Bottom frame)
+    // Row 3: ▯ 20x40  ⦨45° F:20 (Compact info)
     // ==========================================
 
-    // --- Line 0: Measurement (Centered) ---
+    // --- Line 0: Top Separator ---
+    String line0 = "====================";
+    
+    // --- Line 1: Measurement (THE STAR - Centered) ---
     String lenStr;
     String unitStr;
     
@@ -57,35 +60,29 @@ void DisplaySys::showIdle(float currentMM, float targetMM, uint8_t cutMode, uint
     int padding = (20 - mainVal.length()) / 2;
     if (padding < 0) padding = 0;
     
-    String line0 = "";
-    for(int i=0; i<padding; i++) line0 += " ";
-    line0 += mainVal;
+    String line1 = "";
+    for(int i=0; i<padding; i++) line1 += " ";
+    line1 += mainVal;
     // Fill rest with spaces
-    while(line0.length() < 20) line0 += " ";
+    while(line1.length() < 20) line1 += " ";
     
-    // --- Line 1: Separator ---
-    String line1 = "--------------------";
+    // --- Line 2: Bottom Separator ---
+    String line2 = "====================";
     
-    // --- Line 2: Stock Info ---
+    // --- Line 3: Compact Info (Stock + Angle) ---
     String icon = "";
-    if (stockType == 0) icon = "\x01 ";      // Rect
-    else if (stockType == 1) icon = "\x02 "; // Angle
-    else if (stockType == 2) icon = "\x03 "; // Phi (Space added)
+    if (stockType == 0) icon = "\x01";      // Rect (custom char)
+    else if (stockType == 1) icon = "\x02"; // Angle iron (custom char L-shape)
+    else if (stockType == 2) icon = "\x03"; // Phi (custom char)
     
-    String line2 = "STOCK: " + icon + String(stockStr);
-    // Pad to 20
-    while(line2.length() < 20) line2 += " ";
+    String line3 = icon + " " + String(stockStr);
     
-    // --- Line 3: Angle / Mode ---
-    // Format: "ANGLE: 45   FACE: 20"
-    String line3 = "ANGLE: " + String(cutMode);
+    // Add angle info with custom angle symbol and space
+    line3 += " \x0C " + String(cutMode) + "\xDF"; // angle symbol + space + degrees
     
-    // Add degree symbol
-    line3 += "\xDF"; 
-    
-    // Add Face info if relevant (Rectangular + Angle Mode)
+    // Add Face info if relevant
     if (cutMode > 0 && faceVal > 0) {
-        line3 += "  FACE: " + String(faceVal);
+        line3 += " F:" + String(faceVal);
     }
     
     // Pad to 20
@@ -264,4 +261,24 @@ void DisplaySys::createCustomChars() {
     // 7: Exit (Arrow/Door)
     uint8_t iconExit[8] = {0x04, 0x0E, 0x1F, 0x04, 0x04, 0x04, 0x00, 0x00};
     _lcd->createChar(7, iconExit);
+
+    // 8: Auto-Zero (Circular arrows / Reset)
+    uint8_t iconAutoZero[8] = {0x04, 0x0E, 0x15, 0x04, 0x15, 0x0E, 0x04, 0x00};
+    _lcd->createChar(8, iconAutoZero);
+
+    // 9: Threshold (Ruler / Measurement line)
+    uint8_t iconThreshold[8] = {0x00, 0x1F, 0x04, 0x04, 0x04, 0x1F, 0x00, 0x00};
+    _lcd->createChar(9, iconThreshold);
+
+    // 10: Units (Scale / Balance)
+    uint8_t iconUnits[8] = {0x04, 0x0A, 0x11, 0x1F, 0x11, 0x11, 0x00, 0x00};
+    _lcd->createChar(10, iconUnits);
+
+    // 11: Direction (Bidirectional arrows)
+    uint8_t iconDirection[8] = {0x04, 0x0E, 0x1F, 0x00, 0x1F, 0x0E, 0x04, 0x00};
+    _lcd->createChar(11, iconDirection);
+
+    // 12: Angle symbol (diagonal line, vertically centered)
+    uint8_t iconAngleSymbol[8] = {0x00, 0x10, 0x18, 0x1C, 0x1E, 0x1F, 0x00, 0x00};
+    _lcd->createChar(12, iconAngleSymbol);
 }
