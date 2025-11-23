@@ -243,15 +243,51 @@ void loop() {
                 // Double-click detection
                 unsigned long now = millis();
                 if (now - lastClickTime < DOUBLE_CLICK_WINDOW) {
-                    // Double-click! Toggle mode
-                    settings.cutMode = (settings.cutMode == 0) ? 1 : 0;
-                    Storage::save(settings);
-                    Serial1.println("Mode toggled via double-click");
+                    // Double-click! Toggle mode (Straight <-> Angle)
+                    static uint8_t lastAngle = 45; // Default to 45 if not set
+                    
+                    if (settings.cutMode == 0) {
+                        // Switch TO Angle Mode (restore last used angle)
+                        settings.cutMode = lastAngle;
+                        if (settings.cutMode == 0) settings.cutMode = 45; // Safety fallback
+                    } else {
+                        // Switch TO Straight Mode (save current angle first)
+                        lastAngle = settings.cutMode;
+                        settings.cutMode = 0;
+                    }
+                    
+                    // Storage::save(settings); // Disabled - Will use AT24C256 EEPROM
+                    Serial1.print("Mode toggled. New Angle: ");
+                    Serial1.println(settings.cutMode);
                     lastClickTime = 0;  // Reset
                 } else {
                     // Single click: Register Cut + Zero
                     statsSys.registerCut(currentMM);
                     encoderSys.reset();
+                    
+                    // If in 45-degree mode, apply offset for face width
+                    // This makes the display read negative (e.g. -40mm)
+                    // User feeds stock until 0.0 to ensure full miter cut
+                    // If in Angle Mode (>0), apply offset based on Face Width and Angle
+                    // Formula: Offset = FaceWidth * tan(Angle)
+                    // Example: 45 deg -> tan(45)=1 -> Offset = FaceWidth
+                    // Example: 10 deg -> tan(10)=0.176 -> Offset = 0.176 * FaceWidth
+                    if (settings.cutMode > 0) {
+                        float faceVal = (float)getFaceValue();
+                        if (faceVal > 0) {
+                            // Convert degrees to radians
+                            float rad = settings.cutMode * PI / 180.0;
+                            float offset = faceVal * tan(rad);
+                            
+                            encoderSys.setOffset(offset);
+                            Serial1.print("Miter Offset (");
+                            Serial1.print(settings.cutMode);
+                            Serial1.print("deg): -");
+                            Serial1.print(offset);
+                            Serial1.println("mm");
+                        }
+                    }
+                    
                     Serial1.print("Cut registered: ");
                     Serial1.print(currentMM);
                     Serial1.println("mm, encoder reset");
@@ -267,13 +303,11 @@ void loop() {
                 menuSys.init(&settings, &statsSys);
                 Serial1.println("Entering menu...");
             } else if (event == EVENT_CW || event == EVENT_CCW) {
-                // Knob in Idle
+                // Knob in Idle - only in angle mode with rectangular stock
                 if (settings.cutMode > 0 && settings.stockType == 0) {
-                    // Only in angle mode with rectangular stock: cycle face
                     settings.faceIdx = (settings.faceIdx == 0) ? 1 : 0;
-                    Storage::save(settings);
+                    // Storage::save(settings); // Disabled - Will use AT24C256 EEPROM
                 }
-                // In 0° mode, knob does nothing (safety)
             }
             
             // Auto-Zero Logic (only in 0° mode)
@@ -312,13 +346,16 @@ void loop() {
             
             // Update display (if not in hidden menu)
             if (!hiddenMenuActive) {
-                displaySys.showIdle(currentMM, targetMM, settings.cutMode, stockStr, faceVal, settings.isInch);
+                displaySys.showIdle(currentMM, targetMM, settings.cutMode, settings.stockType, stockStr, faceVal, settings.isInch);
             }
             break;
         }
 
-        case STATE_MENU:
-            if (!menuSys.update(event, &displaySys, &encoderSys)) {
+        case STATE_MENU: {
+            // Translate raw encoder events to semantic UI events
+            InputEvent semanticEvent = toSemanticEvent(event);
+            
+            if (!menuSys.update(semanticEvent, &displaySys, &encoderSys)) {
                 // Menu requested exit
                 currentState = STATE_IDLE;
                 displaySys.clear();
@@ -329,6 +366,7 @@ void loop() {
                 azState = AZ_DISABLED;
             }
             break;
+        }
 
         case STATE_MEASURING:
             // Legacy state, redirect to IDLE
@@ -347,4 +385,5 @@ void loop() {
     // 3. Update Hardware Wrappers
     encoderSys.update();
     displaySys.update();
+    statsSys.update();
 }

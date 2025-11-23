@@ -24,6 +24,11 @@ struct SystemSettings {
     uint8_t stockType;             // 0=Rect, 1=Angle, 2=Cyl
     uint8_t stockIdx;              // Index into stock table
     uint8_t faceIdx;               // Face selection (0 or 1)
+    
+    // Time & Cost
+    float hourlyRate;
+    unsigned long projectSeconds;
+    unsigned long totalSeconds;
 };
 
 class Storage {
@@ -57,6 +62,11 @@ public:
         defaults.stockType = 0; // Rectangular
         defaults.stockIdx = 0;
         defaults.faceIdx = 0;
+        
+        defaults.hourlyRate = 50.0; // Default $50/hr
+        defaults.projectSeconds = 0;
+        defaults.totalSeconds = 0;
+        
         save(defaults);
         EEPROM.write(EEPROM_ADDR_MAGIC, 0x42);
     }
@@ -84,6 +94,9 @@ public:
         s.stockType = EEPROM.read(EEPROM_ADDR_STOCK_TYPE);
         s.stockIdx = EEPROM.read(EEPROM_ADDR_STOCK_IDX);
         s.faceIdx = EEPROM.read(EEPROM_ADDR_FACE_IDX);
+        EEPROM.get(EEPROM_ADDR_HOURLY_RATE, s.hourlyRate);
+        EEPROM.get(EEPROM_ADDR_PROJ_SEC, s.projectSeconds);
+        EEPROM.get(EEPROM_ADDR_TOT_SEC, s.totalSeconds);
         return s;
     }
 
@@ -106,6 +119,9 @@ public:
         EEPROM.update(EEPROM_ADDR_STOCK_TYPE, s.stockType);
         EEPROM.update(EEPROM_ADDR_STOCK_IDX, s.stockIdx);
         EEPROM.update(EEPROM_ADDR_FACE_IDX, s.faceIdx);
+        EEPROM.put(EEPROM_ADDR_HOURLY_RATE, s.hourlyRate);
+        EEPROM.put(EEPROM_ADDR_PROJ_SEC, s.projectSeconds);
+        EEPROM.put(EEPROM_ADDR_TOT_SEC, s.totalSeconds);
 #if defined(STM32F4xx)
         IWatchdog.reload(); // Feed watchdog after write
 #endif

@@ -6,12 +6,23 @@
 
 enum InputEvent {
     EVENT_NONE,
-    EVENT_CW,
-    EVENT_CCW,
+    EVENT_CW,               // Raw hardware: Clockwise rotation
+    EVENT_CCW,              // Raw hardware: Counter-clockwise rotation
     EVENT_CLICK,
     EVENT_LONG_PRESS,       // 3s - Enter Menu
-    EVENT_SUPER_LONG_PRESS  // 10s - Hidden Info
+    EVENT_SUPER_LONG_PRESS, // 10s - Hidden Info
+    // Semantic UI events (use these in menu handlers for consistency)
+    EVENT_NEXT,             // UI: Move forward/down in list, increase value
+    EVENT_PREV              // UI: Move backward/up in list, decrease value
 };
+
+// Translate raw encoder events to semantic UI events
+// Current convention: CCW = Next/Increase, CW = Prev/Decrease
+inline InputEvent toSemanticEvent(InputEvent raw) {
+    if (raw == EVENT_CCW) return EVENT_NEXT;
+    if (raw == EVENT_CW) return EVENT_PREV;
+    return raw;  // CLICK, LONG_PRESS, etc. pass through unchanged
+}
 
 class UserInput {
 public:
