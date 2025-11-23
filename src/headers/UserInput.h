@@ -9,7 +9,7 @@ enum InputEvent {
     EVENT_CW,               // Raw hardware: Clockwise rotation
     EVENT_CCW,              // Raw hardware: Counter-clockwise rotation
     EVENT_CLICK,
-    EVENT_LONG_PRESS,       // 1s - Enter Menu / Go Back
+    EVENT_LONG_PRESS,       // 500ms - Enter Menu / Go Back
     EVENT_SUPER_LONG_PRESS, // 10s - Hidden Info
     // Semantic UI events (use these in menu handlers for consistency)
     EVENT_NEXT,             // UI: Move forward/down in list, increase value

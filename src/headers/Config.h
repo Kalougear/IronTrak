@@ -15,14 +15,12 @@
 #define PIN_MENU_DT             PB13
 #define PIN_MENU_SW             PB14
 
-// Display (I2C) - Using PB8/PB9 with external 4.7k pull-ups
-#define PIN_LCD_SDA             PB9   // SDA with 4.7kΩ to 3.3V
-#define PIN_LCD_SCL             PB8   // SCL with 4.7kΩ to 3.3V
-
 // Display Settings
 #define LCD_COLS                20
 #define LCD_ROWS                4
 #define LCD_ADDR                0x27
+#define PIN_LCD_SDA             PB9
+#define PIN_LCD_SCL             PB8
 
 // Measurement Settings
 #define DEFAULT_WHEEL_DIA_MM    50.0
@@ -87,6 +85,12 @@ extern const uint8_t STOCK_ANGLE_IN_COUNT;
 extern const char* STOCK_CYL_IN[];
 extern const float STOCK_CYL_IN_DIMS[];
 extern const uint8_t STOCK_CYL_IN_COUNT;
+
+// ============================================================================
+// FORTRESS MODE - ANGLE SENSOR
+// ============================================================================
+#define USE_ANGLE_SENSOR           // Uncomment to enable AS5600 sensor
+#define AS5600_I2C_ADDR    0x36    // AS5600 magnetic angle sensor
 
 #endif // CONFIG_H
 

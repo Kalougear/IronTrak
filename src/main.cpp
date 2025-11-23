@@ -14,6 +14,7 @@
 #include "headers/Storage.h"
 #include "headers/MenuSys.h"
 #include "headers/StatsSys.h"
+#include "headers/AngleSensor.h" // Added
 
 // ============================================================================
 // GLOBAL OBJECTS
@@ -23,6 +24,7 @@ DisplaySys displaySys;
 UserInput userInput;
 MenuSys menuSys;
 StatsSys statsSys;
+AngleSensor angleSensor; // Added
 SystemSettings settings;
 
 SystemState currentState = STATE_IDLE;
@@ -141,18 +143,26 @@ void setup() {
     delay(100);
     Serial1.println("USB CDC initialized");
 
-    // 2. Initialize Subsystems
-    Serial1.println("Initializing Storage...");
-    Storage::init();
-    Serial1.println("Storage OK");
+    // 2. Initialize Subsystems (ORDER MATTERS FOR I2C)
     
-    Serial1.println("Loading settings...");
-    settings = Storage::load();
-    Serial1.println("Settings loaded OK");
-    
+    // Display starts Wire.begin(), so it must be first!
     Serial1.println("Initializing Display (20x4 LCD I2C)...");
     displaySys.init();
-    Serial1.println("Display OK");
+    Serial1.println("Display OK (I2C Started)");
+
+    Serial1.println("Settings initialized with defaults (no persistence)");
+    
+    Serial1.println("Initializing Angle Sensor...");
+    if (settings.useAngleSensor) {
+        if (angleSensor.init()) {
+            Serial1.println("Angle Sensor FOUND");
+        } else {
+            Serial1.println("Angle Sensor NOT FOUND - Reverting to Manual");
+            settings.useAngleSensor = false;
+        }
+    } else {
+        Serial1.println("Angle Sensor DISABLED (Manual Mode)");
+    }
     
     Serial1.println("Initializing Encoder (TIM4 Hardware)...");
     encoderSys.init();
@@ -170,7 +180,7 @@ void setup() {
     Serial1.println("Stats OK");
     
     Serial1.println("Initializing Menu System...");
-    menuSys.init(&settings, &statsSys);
+    menuSys.init(&settings, &statsSys, &angleSensor); // Pass sensor
     Serial1.println("Menu OK");
 
     // 3. Configure Timer for 1kHz Interrupt
@@ -223,6 +233,18 @@ void loop() {
     // 2. State Machine
     switch (currentState) {
         case STATE_IDLE: {
+            // Angle Sensor Logic
+            if (settings.useAngleSensor) {
+                float deg = angleSensor.getAngleDegrees();
+                // Round to nearest int for cutMode (0-90)
+                uint8_t newMode = (uint8_t)(deg + 0.5);
+                if (newMode != settings.cutMode) {
+                    settings.cutMode = newMode;
+                    // No save here to avoid EEPROM wear, save on mode change or periodic?
+                    // Actually, cutMode is volatile in sensor mode, we don't save it constantly.
+                }
+            }
+
             // Get current measurement
             float currentMM = encoderSys.getDistanceMM();
             float targetMM = getTargetMM();
@@ -244,19 +266,18 @@ void loop() {
                 unsigned long now = millis();
                 if (now - lastClickTime < DOUBLE_CLICK_WINDOW) {
                     // Double-click! Toggle mode (Straight <-> Angle)
-                    static uint8_t lastAngle = 45; // Default to 45 if not set
                     
                     if (settings.cutMode == 0) {
                         // Switch TO Angle Mode (restore last used angle)
-                        settings.cutMode = lastAngle;
+                        settings.cutMode = settings.lastAngle; // Use persistent value
                         if (settings.cutMode == 0) settings.cutMode = 45; // Safety fallback
                     } else {
                         // Switch TO Straight Mode (save current angle first)
-                        lastAngle = settings.cutMode;
+                        settings.lastAngle = settings.cutMode; // Save persistent value
                         settings.cutMode = 0;
+                        // No persistence - settings live in RAM only
                     }
                     
-                    // Storage::save(settings); // Disabled - Will use AT24C256 EEPROM
                     Serial1.print("Mode toggled. New Angle: ");
                     Serial1.println(settings.cutMode);
                     lastClickTime = 0;  // Reset
@@ -265,26 +286,13 @@ void loop() {
                     statsSys.registerCut(currentMM);
                     encoderSys.reset();
                     
-                    // If in 45-degree mode, apply offset for face width
-                    // This makes the display read negative (e.g. -40mm)
-                    // User feeds stock until 0.0 to ensure full miter cut
-                    // If in Angle Mode (>0), apply offset based on Face Width and Angle
-                    // Formula: Offset = FaceWidth * tan(Angle)
-                    // Example: 45 deg -> tan(45)=1 -> Offset = FaceWidth
-                    // Example: 10 deg -> tan(10)=0.176 -> Offset = 0.176 * FaceWidth
+                    // Miter Offset Logic
                     if (settings.cutMode > 0) {
                         float faceVal = (float)getFaceValue();
                         if (faceVal > 0) {
-                            // Convert degrees to radians
                             float rad = settings.cutMode * PI / 180.0;
                             float offset = faceVal * tan(rad);
-                            
                             encoderSys.setOffset(offset);
-                            Serial1.print("Miter Offset (");
-                            Serial1.print(settings.cutMode);
-                            Serial1.print("deg): -");
-                            Serial1.print(offset);
-                            Serial1.println("mm");
                         }
                     }
                     
@@ -298,12 +306,12 @@ void loop() {
                 }
             } else if (event == EVENT_LONG_PRESS) {
                 // Enter Menu - Overwrite idle screen directly for instant transition
-                menuSys.init(&settings, &statsSys);
+                menuSys.init(&settings, &statsSys, &angleSensor);
                 currentState = STATE_MENU;
                 Serial1.println("Entering menu...");
             } else if (event == EVENT_CW || event == EVENT_CCW) {
-                // Knob in Idle - only in angle mode with rectangular stock
-                if (settings.cutMode > 0 && settings.stockType == 0) {
+                // Knob in Idle - only in angle mode with rectangular stock AND MANUAL MODE
+                if (!settings.useAngleSensor && settings.cutMode > 0 && settings.stockType == 0) {
                     settings.faceIdx = (settings.faceIdx == 0) ? 1 : 0;
                     // Storage::save(settings); // Disabled - Will use AT24C256 EEPROM
                 }
@@ -333,8 +341,6 @@ void loop() {
                         // Triggered! Register cut and shift zero point
                         statsSys.registerCut(lockedPosition);
                         
-                        // Set offset to locked position so display shows distance from that point
-                        // Example: Locked at 100mm, now at 105mm → offset=100 → display shows 5mm
                         long rawCount = encoderSys.getRawCount();
                         float mmPerPulse = encoderSys.getWheelDiameter() * PI / PULSES_PER_REV;
                         float absolutePosition = rawCount * mmPerPulse;  // Raw physical position
@@ -344,10 +350,7 @@ void loop() {
                         
                         Serial1.print("Auto-Zero TRIGGERED! Locked: ");
                         Serial1.print(lockedPosition);
-                        Serial1.print("mm, Current: ");
-                        Serial1.print(currentMM);
-                        Serial1.print("mm, New display should show: ");
-                        Serial1.println(currentMM - lockedPosition);
+                        Serial1.println("mm");
                         
                         azState = AZ_MEASURING;
                         stillnessStartTime = millis();
@@ -384,7 +387,7 @@ void loop() {
             // Legacy state, redirect to IDLE
             currentState = STATE_IDLE;
             break;
-
+            
         case STATE_CALIBRATION:
             // Handled in MenuSys
             break;
@@ -399,3 +402,5 @@ void loop() {
     displaySys.update();
     statsSys.update();
 }
+
+

@@ -1,24 +1,24 @@
-#include "headers/MenuSys.h"
+#include "../headers/MenuSys.h"
 
-void MenuSys::init(SystemSettings *settings, StatsSys *stats)
+MenuSys::MenuSys()
+{
+    // Constructor - Initialization handled in init()
+}
+
+void MenuSys::init(SystemSettings *settings, StatsSys *stats, AngleSensor *angleSensor)
 {
     _settings = settings;
     _stats = stats;
+    _angleSensor = angleSensor;
+
+    // Reset menu state
     _state = MENU_NAVIGATE;
     _currentItem = 0;
     _scrollOffset = 0;
-    _statsPage = 0;
-    _statsScrollOffset = 0;
-    _statsSubItem = 0;
-    _calibSubItem = -1;
-    _calibScrollOffset = 0;
-    _calibStep = 0;
-    _lastCalibAdjustTime = 0;
-    _calibAdjustSpeed = 0;
-    _stockPage = 0;
     _needsRedraw = true;
     _exitRequest = false;
-    _lastActivityTime = millis();
+    _lastActivityTime = millis(); // CRITICAL: Reset timeout timer!
+    _warningEndTime = 0;
 }
 
 bool MenuSys::update(InputEvent e, DisplaySys *display, EncoderSys *encoder)
@@ -33,59 +33,75 @@ bool MenuSys::update(InputEvent e, DisplaySys *display, EncoderSys *encoder)
         return false;
     }
 
+    // Force redraw for flashing warning
+    if (_warningEndTime > 0)
+    {
+        _needsRedraw = true;
+    }
+
     // Universal Back Button - Long Press (1s) goes back one level
     if (e == EVENT_LONG_PRESS)
     {
         switch (_state)
         {
-            case MENU_NAVIGATE:
-                // Top level - exit menu
-                _exitRequest = true;
-                return false;
-                
-            case MENU_STATS_SELECT:
-                // Return to main navigation
-                _state = MENU_NAVIGATE;
-                _currentItem = ITEM_STATS;
-                _scrollOffset = (_currentItem > 2) ? _currentItem - 2 : 0;
-                _needsRedraw = true;
-                return true;
-                
-            case MENU_STATS_PROJECT:
-            case MENU_STATS_GLOBAL:
-                // Return to stats selection
-                _state = MENU_STATS_SELECT;
-                _needsRedraw = true;
-                return true;
-                
-            case MENU_CALIB_SUBMENU:
-                // Return to main navigation
-                _state = MENU_NAVIGATE;
-                _currentItem = ITEM_CALIB;
-                _scrollOffset = (_currentItem > 2) ? _currentItem - 2 : 0;
-                _needsRedraw = true;
-                return true;
-                
-            case MENU_AUTO_CALIB:
-                // Return to calibration submenu
-                _state = MENU_CALIB_SUBMENU;
-                _needsRedraw = true;
-                return true;
-                
-            case MENU_STOCK_SELECT:
-                // Return to main navigation
-                _state = MENU_NAVIGATE;
-                _currentItem = ITEM_STOCK;
-                _scrollOffset = (_currentItem > 2) ? _currentItem - 2 : 0;
-                _needsRedraw = true;
-                return true;
-                
-            case MENU_EDIT:
-                // Cancel edit, return to navigation
-                _state = MENU_NAVIGATE;
-                _scrollOffset = (_currentItem > 2) ? _currentItem - 2 : 0;
-                _needsRedraw = true;
-                return true;
+        case MENU_NAVIGATE:
+            // Top level - exit menu
+            _exitRequest = true;
+            return false;
+
+        case MENU_STATS_SELECT:
+            // Return to main navigation
+            _state = MENU_NAVIGATE;
+            _currentItem = ITEM_STATS;
+            _scrollOffset = (_currentItem > 2) ? _currentItem - 2 : 0;
+            _needsRedraw = true;
+            return true;
+
+        case MENU_STATS_PROJECT:
+        case MENU_STATS_GLOBAL:
+            // Return to stats selection
+            _state = MENU_STATS_SELECT;
+            _needsRedraw = true;
+            return true;
+
+        case MENU_CALIBRATION_SUBMENU:
+            // Return to main navigation
+            _state = MENU_NAVIGATE;
+            _currentItem = ITEM_CALIBRATION;
+            _scrollOffset = (_currentItem > 2) ? _currentItem - 2 : 0;
+            _needsRedraw = true;
+            return true;
+
+        case MENU_SETTINGS_SUBMENU:
+            // Return to main navigation
+            _state = MENU_NAVIGATE;
+            _currentItem = ITEM_SETTINGS;
+            _scrollOffset = (_currentItem > 2) ? _currentItem - 2 : 0;
+            _needsRedraw = true;
+            return true;
+
+        case MENU_AUTO_CALIB:
+        case MENU_CALIB_ANGLE_0:
+        case MENU_CALIB_ANGLE_45:
+            // Return to calibration submenu
+            _state = MENU_CALIBRATION_SUBMENU;
+            _needsRedraw = true;
+            return true;
+
+        case MENU_STOCK_SELECT:
+            // Return to main navigation
+            _state = MENU_NAVIGATE;
+            _currentItem = ITEM_STOCK;
+            _scrollOffset = (_currentItem > 2) ? _currentItem - 2 : 0;
+            _needsRedraw = true;
+            return true;
+
+        case MENU_EDIT:
+            // Cancel edit, return to navigation
+            _state = MENU_NAVIGATE;
+            _scrollOffset = (_currentItem > 2) ? _currentItem - 2 : 0;
+            _needsRedraw = true;
+            return true;
         }
     }
 
@@ -105,13 +121,21 @@ bool MenuSys::update(InputEvent e, DisplaySys *display, EncoderSys *encoder)
     {
         handleStatsGlobal(e);
     }
-    else if (_state == MENU_CALIB_SUBMENU)
+    else if (_state == MENU_CALIBRATION_SUBMENU)
     {
-        handleCalibSubmenu(e);
+        handleCalibrationSubmenu(e);
+    }
+    else if (_state == MENU_SETTINGS_SUBMENU)
+    {
+        handleSettingsSubmenu(e);
     }
     else if (_state == MENU_AUTO_CALIB)
     {
         handleAutoCalib(e, encoder);
+    }
+    else if (_state == MENU_CALIB_ANGLE_0 || _state == MENU_CALIB_ANGLE_45)
+    {
+        handleAngleWizard(e);
     }
     else if (_state == MENU_STOCK_SELECT)
     {
@@ -165,11 +189,17 @@ void MenuSys::handleNavigation(InputEvent e)
             _statsSubItem = 0;
             _statsScrollOffset = 0;
         }
-        else if (_currentItem == ITEM_CALIB)
+        else if (_currentItem == ITEM_CALIBRATION)
         {
-            _state = MENU_CALIB_SUBMENU;
+            _state = MENU_CALIBRATION_SUBMENU;
             _calibSubItem = 0;
             _calibScrollOffset = 0;
+        }
+        else if (_currentItem == ITEM_SETTINGS)
+        {
+            _state = MENU_SETTINGS_SUBMENU;
+            _settingsSubItem = 0;
+            _settingsScrollOffset = 0;
         }
         else if (_currentItem == ITEM_STOCK)
         {
@@ -178,8 +208,13 @@ void MenuSys::handleNavigation(InputEvent e)
         }
         else if (_currentItem == ITEM_CUT_MODE)
         {
-            _state = MENU_EDIT;
-            _tempCutMode = _settings->cutMode;
+            // Prevent editing if in Auto Mode (Sensor Active)
+            if (!_settings->useAngleSensor)
+            {
+                _state = MENU_EDIT;
+                _tempCutMode = _settings->cutMode;
+            }
+            // Else: Do nothing (ReadOnly)
         }
         _needsRedraw = true;
     }
@@ -313,12 +348,19 @@ void MenuSys::handleStatsGlobal(InputEvent e)
     }
 }
 
-void MenuSys::handleCalibSubmenu(InputEvent e)
+void MenuSys::handleCalibrationSubmenu(InputEvent e)
 {
+    // Calibration submenu: 5 items (0-4)
+    // 0: Wheel Wizard (auto-calibrate)
+    // 1: Angle Wizard (calibrate angle sensor)
+    // 2: Wheel Diameter (manual fine-tune)
+    // 3: Kerf Thickness
+    // 4: Back
+
     if (e == EVENT_NEXT)
     {
         _calibSubItem++;
-        if (_calibSubItem > 7)
+        if (_calibSubItem > 4)
             _calibSubItem = 0;
         _needsRedraw = true;
     }
@@ -326,7 +368,7 @@ void MenuSys::handleCalibSubmenu(InputEvent e)
     {
         _calibSubItem--;
         if (_calibSubItem < 0)
-            _calibSubItem = 7;
+            _calibSubItem = 4;
         _needsRedraw = true;
     }
 
@@ -339,40 +381,110 @@ void MenuSys::handleCalibSubmenu(InputEvent e)
     {
         if (_calibSubItem == 0)
         {
-            _state = MENU_EDIT;
-            _tempDia = _settings->wheelDiameter;
-        }
-        else if (_calibSubItem == 1)
-        {
-            _state = MENU_EDIT;
-            _tempKerf = _settings->kerfMM;
-        }
-        else if (_calibSubItem == 2)
-        {
-            _settings->autoZeroEnabled = !_settings->autoZeroEnabled;
-        }
-        else if (_calibSubItem == 3)
-        {
-            _state = MENU_EDIT;
-            _tempAZThresh = _settings->autoZeroThresholdMM;
-        }
-        else if (_calibSubItem == 4)
-        {
-            _settings->isInch = !_settings->isInch;
-        }
-        else if (_calibSubItem == 5)
-        {
-            _settings->reverseDirection = !_settings->reverseDirection;
-        }
-        else if (_calibSubItem == 6)
-        {
+            // Wheel Wizard (auto-calibration)
             _state = MENU_AUTO_CALIB;
             _calibStep = 0;
         }
-        else if (_calibSubItem == 7)
+        else if (_calibSubItem == 1)
         {
+            // Angle Wizard - check if sensor is enabled first
+            if (_settings->useAngleSensor)
+            {
+                _state = MENU_CALIB_ANGLE_0;
+            }
+            else
+            {
+                // Flash warning (3 seconds)
+                _warningEndTime = millis() + 3000;
+                _needsRedraw = true;
+            }
+        }
+        else if (_calibSubItem == 2)
+        {
+            // Wheel Diameter (manual edit)
+            _state = MENU_EDIT;
+            _tempDia = _settings->wheelDiameter;
+        }
+        else if (_calibSubItem == 3)
+        {
+            // Kerf Thickness
+            _state = MENU_EDIT;
+            _tempKerf = _settings->kerfMM;
+        }
+        else if (_calibSubItem == 4)
+        {
+            // Back to main menu
             _state = MENU_NAVIGATE;
-            _currentItem = ITEM_CALIB;
+            _currentItem = ITEM_CALIBRATION;
+            _scrollOffset = (_currentItem > 2) ? _currentItem - 2 : 0;
+        }
+        _needsRedraw = true;
+    }
+}
+
+void MenuSys::handleSettingsSubmenu(InputEvent e)
+{
+    // Settings submenu: 6 items (0-5)
+    // 0: Units (METRIC/IMPERIAL)
+    // 1: Angle Source (MANUAL/AUTO)
+    // 2: Auto-Zero (ON/OFF)
+    // 3: Auto-Zero Threshold
+    // 4: Direction (FWD/REV)
+    // 5: Back
+
+    if (e == EVENT_NEXT)
+    {
+        _settingsSubItem++;
+        if (_settingsSubItem > 5)
+            _settingsSubItem = 0;
+        _needsRedraw = true;
+    }
+    else if (e == EVENT_PREV)
+    {
+        _settingsSubItem--;
+        if (_settingsSubItem < 0)
+            _settingsSubItem = 5;
+        _needsRedraw = true;
+    }
+
+    if (_settingsSubItem < _settingsScrollOffset)
+        _settingsScrollOffset = _settingsSubItem;
+    else if (_settingsSubItem >= _settingsScrollOffset + 3)
+        _settingsScrollOffset = _settingsSubItem - 2;
+
+    if (e == EVENT_CLICK)
+    {
+        if (_settingsSubItem == 0)
+        {
+            // Toggle Units (METRIC/IMPERIAL)
+            _settings->isInch = !_settings->isInch;
+        }
+        else if (_settingsSubItem == 1)
+        {
+            // Toggle Angle Source (MANUAL/AUTO)
+            _settings->useAngleSensor = !_settings->useAngleSensor;
+        }
+        else if (_settingsSubItem == 2)
+        {
+            // Toggle Auto-Zero
+            _settings->autoZeroEnabled = !_settings->autoZeroEnabled;
+        }
+        else if (_settingsSubItem == 3)
+        {
+            // Edit Auto-Zero Threshold
+            _state = MENU_EDIT;
+            _tempAZThresh = _settings->autoZeroThresholdMM;
+        }
+        else if (_settingsSubItem == 4)
+        {
+            // Toggle Direction
+            _settings->reverseDirection = !_settings->reverseDirection;
+        }
+        else if (_settingsSubItem == 5)
+        {
+            // Back to main menu
+            _state = MENU_NAVIGATE;
+            _currentItem = ITEM_SETTINGS;
             _scrollOffset = (_currentItem > 2) ? _currentItem - 2 : 0;
         }
         _needsRedraw = true;
@@ -433,9 +545,28 @@ void MenuSys::handleAutoCalib(InputEvent e, EncoderSys *encoder)
                 _settings->wheelDiameter = newDia;
                 encoder->setWheelDiameter(newDia);
             }
-            _state = MENU_CALIB_SUBMENU;
+            _state = MENU_CALIBRATION_SUBMENU;
             _needsRedraw = true;
         }
+    }
+}
+
+void MenuSys::handleAngleWizard(InputEvent e)
+{
+    if (e == EVENT_CLICK)
+    {
+        uint16_t raw = _angleSensor->getRawAngle();
+        if (_state == MENU_CALIB_ANGLE_0)
+        {
+            _angleSensor->setZeroPoint(raw);
+            _state = MENU_CALIB_ANGLE_45;
+        }
+        else
+        {
+            _angleSensor->set45Point(raw);
+            _state = MENU_CALIBRATION_SUBMENU;
+        }
+        _needsRedraw = true;
     }
 }
 
@@ -568,7 +699,7 @@ void MenuSys::handleEdit(InputEvent e)
             else if (e == EVENT_CLICK)
             {
                 _settings->wheelDiameter = _tempDia;
-                _state = MENU_CALIB_SUBMENU;
+                _state = MENU_CALIBRATION_SUBMENU;
             }
             _needsRedraw = true;
         }
@@ -581,7 +712,7 @@ void MenuSys::handleEdit(InputEvent e)
             else if (e == EVENT_CLICK)
             {
                 _settings->kerfMM = max(0.0f, _tempKerf);
-                _state = MENU_CALIB_SUBMENU;
+                _state = MENU_CALIBRATION_SUBMENU;
             }
             _needsRedraw = true;
         }
@@ -594,7 +725,7 @@ void MenuSys::handleEdit(InputEvent e)
             else if (e == EVENT_CLICK)
             {
                 _settings->autoZeroThresholdMM = constrain(_tempAZThresh, 2.0, 20.0);
-                _state = MENU_CALIB_SUBMENU;
+                _state = MENU_CALIBRATION_SUBMENU;
             }
             _needsRedraw = true;
         }
@@ -633,6 +764,24 @@ void MenuSys::render(DisplaySys *display)
             res += " ";
         return res;
     };
+
+    // Check for flashing warning message
+    if (_warningEndTime > 0)
+    {
+        if (millis() < _warningEndTime)
+        {
+            display->showMenu4(
+                header("! WARNING !"),
+                center("CHANGE ANGLE SRC"),
+                center("TO AUTO"),
+                center("IN SETTINGS"));
+            return;
+        }
+        else
+        {
+            _warningEndTime = 0;
+        }
+    }
 
     if (_state == MENU_AUTO_CALIB)
     {
@@ -674,6 +823,27 @@ void MenuSys::render(DisplaySys *display)
         display->showMenu4(l0, l1, l2, l3);
         return;
     }
+
+    // START NEW ANGLE WIZARD RENDERING
+    if (_state == MENU_CALIB_ANGLE_0)
+    {
+        display->showMenu4(
+            header("\x07 ANGLE WIZARD"),
+            center("STEP 1: ZERO"),
+            center("SET TO 0 DEGREES"),
+            center("CLICK TO CAPTURE"));
+        return;
+    }
+    else if (_state == MENU_CALIB_ANGLE_45)
+    {
+        display->showMenu4(
+            header("\x07 ANGLE WIZARD"),
+            center("STEP 2: 45 DEG"),
+            center("SET TO 45 DEGREES"),
+            center("CLICK TO SAVE"));
+        return;
+    }
+    // END NEW ANGLE WIZARD RENDERING
 
     if (_state == MENU_STOCK_SELECT)
     {
@@ -804,12 +974,19 @@ void MenuSys::render(DisplaySys *display)
         scrollOffset = _statsScrollOffset;
         itemCount = 5;
     }
-    else if (_state == MENU_CALIB_SUBMENU || (_state == MENU_EDIT && _calibSubItem >= 0))
+    else if (_state == MENU_CALIBRATION_SUBMENU || (_state == MENU_EDIT && _calibSubItem >= 0 && _settingsSubItem < 0))
     {
-        l0 = header("SYSTEM SETUP");
+        l0 = header("CALIBRATION");
         currentItem = _calibSubItem;
         scrollOffset = _calibScrollOffset;
-        itemCount = 8;
+        itemCount = 5;
+    }
+    else if (_state == MENU_SETTINGS_SUBMENU || (_state == MENU_EDIT && _settingsSubItem >= 0 && _calibSubItem < 0))
+    {
+        l0 = header("SETTINGS");
+        currentItem = _settingsSubItem;
+        scrollOffset = _settingsScrollOffset;
+        itemCount = 6;
     }
 
     auto renderItem = [&](int idx) -> String
@@ -821,10 +998,12 @@ void MenuSys::render(DisplaySys *display)
 
         if (_state == MENU_NAVIGATE || (_state == MENU_EDIT && _currentItem == ITEM_CUT_MODE))
         {
-            const char *items[] = {"STOCK PROFILE", "CUT ANGLE", "STATISTICS", "SYSTEM SETUP", "EXIT MENU"};
+            const char *items[] = {"STOCK PROFILE", "CUT ANGLE", "STATISTICS", "CALIBRATION", "SETTINGS", "EXIT MENU"};
             // Use dynamic icon for stock based on current selection: 1=Rect, 2=Angle, 3=Cyl
             char stockIcon = (_settings->stockType == 0) ? 1 : (_settings->stockType == 1 ? 2 : 3);
-            const char icons[] = {stockIcon, 6, 5, 4, 7};
+            // Icons: Stock(Dynamic), Angle(7), Stats(8), Calib(3-Phi), Settings(5-Units), Exit(Space)
+            // Changed Calib to Phi (3) per request
+            const char icons[] = {stockIcon, 7, 8, 3, 5, 32};
 
             s += String(icons[idx]) + " " + items[idx];
 
@@ -833,127 +1012,160 @@ void MenuSys::render(DisplaySys *display)
                 bool editing = (_state == MENU_EDIT && selected);
                 uint8_t mode = editing ? _tempCutMode : _settings->cutMode;
                 s = selected ? "> " : "  ";
-                s += String(icons[idx]) + " ANGLE: ";
-                if (editing)
-                    s += "\x7E";
-                s += String(mode) + "\xDF";
+                // Use Angle Symbol (7)
+
+                if (_settings->useAngleSensor)
+                {
+                    // Auto Mode: Show simple text
+                    s += "\x07 ANGLE IS AUTO";
+                }
+                else
+                {
+                    // Manual Mode: Normal display
+                    s += "\x07 CUT ANGLE: ";
+                    if (editing)
+                        s += "\x7E";
+                    s += String(mode) + "\xDF";
+                }
             }
         }
         else if (_state == MENU_STATS_SELECT || (_state == MENU_EDIT && _statsSubItem == 2))
         {
             bool editing = (_state == MENU_EDIT && selected);
             if (idx == 0)
-                s += "PROJECT STATS";
+                s += "\x08 PROJECT STATS"; // Stats icon (Index 0 via \x08)
             else if (idx == 1)
-                s += "GLOBAL STATS";
+                s += "\x08 GLOBAL STATS"; // Stats icon (Index 0 via \x08)
             else if (idx == 2)
             {
-                s += "RATE: $";
+                s += "\x08 RATE: $"; // Stats icon + Dollar
                 if (editing)
-                    s = "> \x7E RATE: $" + String(_tempRate, 2);
+                    s = "> \x7E \x08 RATE: $" + String(_tempRate, 2);
                 else
                     s += String(_settings->hourlyRate, 2) + "/HR";
             }
             else if (idx == 3)
-                s += "BACK";
+                s += "  BACK";
         }
         else if (_state == MENU_STATS_PROJECT)
         {
             if (idx == 0)
-                s += "CUTS: " + String(_stats->getProjectCuts());
+                s += "\x04 CUTS: " + String(_stats->getProjectCuts()); // Blade icon (Index 4)
             else if (idx == 1)
-                s += "LEN: " + String(_stats->getProjectLengthMeters(), 1) + " M";
+                s += "\x04 LEN: " + String(_stats->getProjectLengthMeters(), 1) + " M"; // Blade icon
             else if (idx == 2)
-                s += "WASTE: " + String(_stats->getProjectWasteMeters(), 2) + " M";
+                s += "\x01 WASTE: " + String(_stats->getProjectWasteMeters(), 2) + " M"; // Rect icon (Material)
             else if (idx == 3)
             {
                 unsigned long mins = _stats->getUptimeMinutes();
-                s += "TIME: " + String(mins / 60) + "H " + String(mins % 60) + "M";
+                s += "\x08 TIME: " + String(mins / 60) + "H " + String(mins % 60) + "M"; // Stats icon
             }
             else if (idx == 4)
-                s += "COST: $" + String(_stats->getLaborCost(), 2);
+                s += "$ COST: $" + String(_stats->getLaborCost(), 2); // Dollar
             else if (idx == 5)
-                s += "[ RESET PROJECT ]";
+                s += "\x08 [ RESET PROJECT ]"; // Stats icon
             else if (idx == 6)
-                s += "BACK";
+                s += "  BACK";
         }
         else if (_state == MENU_STATS_GLOBAL)
         {
             if (idx == 0)
-                s += "TOT CUTS: " + String(_stats->getTotalCuts());
+                s += "\x04 TOT CUTS: " + String(_stats->getTotalCuts()); // Blade icon
             else if (idx == 1)
-                s += "TOT LEN: " + String(_stats->getTotalLengthMeters(), 1) + " M";
+                s += "\x04 TOT LEN: " + String(_stats->getTotalLengthMeters(), 1) + " M"; // Blade icon
             else if (idx == 2)
-                s += "TOT WASTE: " + String(_stats->getTotalWasteMeters(), 1) + " M";
+                s += "\x01 TOT WASTE: " + String(_stats->getTotalWasteMeters(), 1) + " M"; // Rect icon
             else if (idx == 3)
-                s += "TOT TIME: " + String((int)_stats->getTotalHours()) + " H";
+                s += "\x08 TOT TIME: " + String((int)_stats->getTotalHours()) + " H"; // Stats icon
             else if (idx == 4)
-                s += "BACK";
+                s += "  BACK";
         }
-        else if (_state == MENU_CALIB_SUBMENU || _state == MENU_EDIT)
+        else if (_state == MENU_CALIBRATION_SUBMENU || (_state == MENU_EDIT && _calibSubItem >= 0 && _settingsSubItem < 0))
         {
+            // Calibration submenu rendering (5 items)
             bool editing = (_state == MENU_EDIT && selected);
 
             if (idx == 0)
             {
-                // Wheel Diameter - use gear icon (4)
-                if (editing)
-                {
-                    s = "> \x7E \x04 WHEEL: " + String(_tempDia, 1);
-                }
-                else
-                {
-                    s += "\x04 WHEEL: " + String(_settings->wheelDiameter, 1) + " MM";
-                }
+                // Wheel Wizard - use Phi icon (3)
+                s += "\x03 WHEEL WIZARD";
             }
             else if (idx == 1)
             {
-                // Kerf - use blade icon (6)
-                if (editing)
-                {
-                    s = "> \x7E \x06 KERF: " + String(_tempKerf, 1);
-                }
-                else
-                {
-                    s += "\x06 KERF: " + String(_settings->kerfMM, 1) + " MM";
-                }
+                // Angle Wizard - use Angle icon (7)
+                s += "\x07 ANGLE WIZARD";
             }
             else if (idx == 2)
             {
-                // Auto-Zero toggle - use auto-zero icon (8)
-                s += "\x08 AUTO-ZERO: " + String(_settings->autoZeroEnabled ? "ON" : "OFF");
-            }
-            else if (idx == 3)
-            {
-                // AZ Threshold - use threshold icon (9)
+                // Wheel Diameter (manual) - use Phi icon (3)
                 if (editing)
                 {
-                    s = "> \x7E \x09 AZ THRESH: " + String(_tempAZThresh, 1);
+                    s = "> \x7E \x03 WHEEL: " + String(_tempDia, 1);
                 }
                 else
                 {
-                    s += "\x09 AZ THRESH: " + String(_settings->autoZeroThresholdMM, 1);
+                    s += "\x03 WHEEL: " + String(_settings->wheelDiameter, 1) + " MM";
+                }
+            }
+            else if (idx == 3)
+            {
+                // Kerf - use Blade icon (4)
+                if (editing)
+                {
+                    s = "> \x7E \x04 KERF: " + String(_tempKerf, 1);
+                }
+                else
+                {
+                    s += "\x04 KERF: " + String(_settings->kerfMM, 1) + " MM";
                 }
             }
             else if (idx == 4)
             {
-                // Units - use units icon (10)
-                s += "\x0A UNITS: " + String(_settings->isInch ? "IMPERIAL" : "METRIC");
+                // Back
+                s += "  BACK";
+            }
+        }
+        else if (_state == MENU_SETTINGS_SUBMENU || (_state == MENU_EDIT && _settingsSubItem >= 0 && _calibSubItem < 0))
+        {
+            // Settings submenu rendering (6 items)
+            bool editing = (_state == MENU_EDIT && selected);
+
+            if (idx == 0)
+            {
+                // Units - use Units icon (5)
+                s += "\x05 UNITS: " + String(_settings->isInch ? "IMPERIAL" : "METRIC");
+            }
+            else if (idx == 1)
+            {
+                // Angle Source - use Angle icon (7)
+                s += "\x07 ANGLE SRC: " + String(_settings->useAngleSensor ? "AUTO" : "MAN");
+            }
+            else if (idx == 2)
+            {
+                // Auto-Zero toggle - use Blade icon (4)
+                s += "\x04 AUTO-ZERO: " + String(_settings->autoZeroEnabled ? "ON" : "OFF");
+            }
+            else if (idx == 3)
+            {
+                // Auto-Zero Threshold - use Blade icon (4)
+                if (editing)
+                {
+                    s = "> \x7E \x04 AZ THRESH: " + String(_tempAZThresh, 1);
+                }
+                else
+                {
+                    s += "\x04 AZ THRESH: " + String(_settings->autoZeroThresholdMM, 1);
+                }
+            }
+            else if (idx == 4)
+            {
+                // Direction - use Direction icon (6)
+                s += "\x06 DIR: " + String(_settings->reverseDirection ? "REV" : "FWD");
             }
             else if (idx == 5)
             {
-                // Direction - use direction icon (11)
-                s += "\x0B DIRECTION: " + String(_settings->reverseDirection ? "REV" : "FWD");
-            }
-            else if (idx == 6)
-            {
-                // Auto Calibrate - use gear icon (4)
-                s += "\x04 AUTO CALIBRATE";
-            }
-            else if (idx == 7)
-            {
-                // Back - use exit icon (7)
-                s += "\x07 BACK";
+                // Back
+                s += "  BACK";
             }
         }
         return s;
