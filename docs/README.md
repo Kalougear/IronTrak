@@ -9,9 +9,10 @@
 **IronTrak** is a precision digital measuring system for bandsaws, designed for professional machine shop use. It combines industrial-grade hardware with intelligent software to provide accurate, hands-free measurement and cut tracking.
 
 ### Key Features
+
 - ✅ **0.1mm Resolution** - 600 PPR optical encoder
 - ✅ **Auto-Zero** - Hands-free production mode
-- ✅ **Kerf Compensation** - Automatic waste tracking  
+- ✅ **Kerf Compensation** - Automatic waste tracking
 - ✅ **Angle Cutting** - Integrated 45° support
 - ✅ **Stock Library** - Pre-configured material profiles
 - ✅ **Statistics** - Project and lifetime cut tracking
@@ -22,9 +23,11 @@
 ## 🚀 Quick Start
 
 ### 1. Get the Hardware
+
 See [docs/BOM.md](docs/BOM.md) for complete parts list (~$50-70 total)
 
 **Essential Components:**
+
 - STM32F4 Black Pill (STM32F411CEU6)
 - 600 PPR Industrial Optical Encoder
 - 20×4 LCD with I2C
@@ -32,11 +35,13 @@ See [docs/BOM.md](docs/BOM.md) for complete parts list (~$50-70 total)
 - HiLink 5V Power Module or USB Power Bank
 
 ### 2. Wire It Up
+
 Follow [docs/WIRING.md](docs/WIRING.md) for detailed connection diagrams
 
 **Critical:** 600PPR encoder needs 2× 4.7kΩ pull-up resistors!
 
 ### 3. Upload Firmware
+
 ```bash
 # Using PlatformIO
 pio run --target upload
@@ -46,6 +51,7 @@ pio run --target upload
 ```
 
 ### 4. Test & Calibrate
+
 See [docs/walkthrough.md](docs/walkthrough.md) for complete testing procedures
 
 ---
@@ -66,12 +72,11 @@ IronTrak/
 │   ├── POWER_SUPPLY.md   # Power circuit design
 │   └── walkthrough.md    # Feature guide
 │
-├── .gemini/              # AI assistant workspace
-│   └── antigravity/
-│       └── brain/
-│           ├── task.md               # Development checklist
-│           ├── implementation_plan.md # Technical design
-│           └── advanced_features_plan.md
+├── ai_docs/              # AI "Brain" & System Intelligence
+│   ├── GLOBAL_RULES.MD   # Operational ruleset
+│   ├── CODEBASE_MAP.MD   # System architecture map
+│   ├── PLANNING.MD       # Roadmap
+│   └── TASK.MD           # Current tasks
 │
 ├── platformio.ini        # PlatformIO configuration
 └── README.md            # This file
@@ -82,12 +87,14 @@ IronTrak/
 ## 💡 How It Works
 
 ### Hardware
+
 1. **Encoder Wheel** rides on stock material as it advances
 2. **600 PPR Encoder** tracks rotation with 0.13mm precision
 3. **Arduino** processes signals via interrupts (no missed counts!)
 4. **20×4 LCD** displays measurement, mode, and stock info
 
 ### Software Architecture
+
 - **Interrupt-driven** encoder counting (highest priority)
 - **State machine** for mode management (Idle, Menu, Calibration)
 - **Auto-Zero** with position locking and motion detection
@@ -99,6 +106,7 @@ IronTrak/
 ## 🔧 Features in Detail
 
 ### Auto-Zero (Hands-Free Production)
+
 1. Position stock → Press ZERO
 2. Advance to length (e.g., 100mm)
 3. **Wait 5 seconds** → System locks position
@@ -108,25 +116,30 @@ IronTrak/
 **Perfect for repetitive cuts!**
 
 ### Kerf Compensation
+
 - Set your blade thickness (e.g., 1.2mm)
 - System tracks total material consumed
 - Stats show: Cut length + Waste
 - **Example:** 10 cuts of 100mm = 1012mm consumed (includes 12mm waste)
 
 ### Angle Mode with Stock Library
+
 - Built-in libraries for rectangular, angle iron, and cylinder stock
 - Select material → System calculates target push distance
 - Face selection for rectangular stock (turn knob in idle)
 - **Example:** 45° on 20×40mm rect → Target shows 40mm
 
 ### Statistics
+
 - **Project Stats:** Cuts and length since last reset
 - **Total Stats:** Lifetime tracking (saved to EEPROM)
 - **Waste Tracking:** Calculates material consumed by blade
 - **Reset:** Clear project stats, keep lifetime
 
 ### Hidden Menu (10s Long-Press)
+
 Quick reference screen shows:
+
 - Kerf setting
 - Wheel diameter
 - Direction (Normal/Reverse)
@@ -137,18 +150,21 @@ Quick reference screen shows:
 ## 🛠️ Build Options
 
 ### Option A: Breadboard Prototype (~$40)
+
 - Fast assembly, easy debugging
 - Use USB power bank
 - Dupont jumper wires
 - **Best for:** Testing and development
 
 ### Option B: Perfboard Build (~$60)
+
 - Soldered connections
 - Proper enclosure
 - HiLink AC power
 - **Best for:** Permanent installation
 
 ### Option C: Custom PCB (~$100)
+
 - Professional appearance
 - Most reliable
 - Compact design
@@ -158,30 +174,32 @@ Quick reference screen shows:
 
 ## 📊 Technical Specifications
 
-| Parameter | Value |
-|-----------|-------|
-| **MCU** | STM32F411CEU6 @ 96MHz |
-| **Resolution** | 0.13mm (50mm wheel) |
-| **Max Speed** | 300 RPM |
-| **Update Rate** | 1ms |
-| **Display** | 20×4 LCD, I2C |
-| **Power** | 5VDC, <300mA |
-| **Memory** | 128KB RAM, 512KB Flash |
-| **EEPROM** | 43 bytes used |
-| **Accuracy** | ±0.5mm over 1000mm |
+| Parameter       | Value                  |
+| --------------- | ---------------------- |
+| **MCU**         | STM32F411CEU6 @ 96MHz  |
+| **Resolution**  | 0.13mm (50mm wheel)    |
+| **Max Speed**   | 300 RPM                |
+| **Update Rate** | 1ms                    |
+| **Display**     | 20×4 LCD, I2C          |
+| **Power**       | 5VDC, <300mA           |
+| **Memory**      | 128KB RAM, 512KB Flash |
+| **EEPROM**      | 43 bytes used          |
+| **Accuracy**    | ±0.5mm over 1000mm     |
 
 ---
 
 ## 🧪 Development Status
 
 ### Phase 1: Core Implementation ✅
+
 - [x] Encoder tracking
-- [x] LCD display  
+- [x] LCD display
 - [x] Menu system
 - [x] Statistics tracking
 - [x] Auto-calibration wizard
 
 ### Phase 2: Advanced Features ✅
+
 - [x] Kerf compensation
 - [x] Auto-Zero with position locking
 - [x] Hidden menu
@@ -191,6 +209,7 @@ Quick reference screen shows:
 - [x] Double-click mode toggle
 
 ### Phase 3: Future Enhancements ⏳
+
 - [ ] Second encoder for blade angle
 - [ ] Custom PCB design
 - [ ] Additional features TBD
@@ -200,16 +219,19 @@ Quick reference screen shows:
 ## 📖 Documentation
 
 **Start Here:**
+
 - [docs/README.md](docs/README.md) - Complete documentation index
 - [docs/BOM.md](docs/BOM.md) - What to buy
 - [docs/WIRING.md](docs/WIRING.md) - How to wire
 - [docs/walkthrough.md](docs/walkthrough.md) - How to use
 
 **Power Options:**
+
 - [docs/POWER_SUPPLY.md](docs/POWER_SUPPLY.md) - Professional HiLink design
 - [docs/POWER_SUPPLY_SIMPLIFIED.md](docs/POWER_SUPPLY_SIMPLIFIED.md) - Budget alternatives
 
 **Development:**
+
 - [.gemini/antigravity/brain/task.md](.gemini/antigravity/brain/task.md) - Progress tracking
 - [.gemini/antigravity/brain/implementation_plan.md](.gemini/antigravity/brain/implementation_plan.md) - Design docs
 
@@ -220,16 +242,19 @@ Quick reference screen shows:
 This project welcomes contributions!
 
 **Hardware:**
+
 - Test with different encoders
 - Design 3D printable enclosures
 - Create mounting brackets for specific bandsaws
 
 **Software:**
+
 - Add display support (OLED, TFT)
 - Implement new features
 - Optimize performance
 
 **Documentation:**
+
 - Create video tutorials
 - Translate to other languages
 - Write troubleshooting guides
@@ -241,6 +266,7 @@ This project welcomes contributions!
 **230VAC POWER CAN BE LETHAL!**
 
 If using HiLink AC-DC power:
+
 - Ensure proper isolation between AC and DC
 - Use appropriate fusing
 - Enclose all AC connections
@@ -260,6 +286,7 @@ Open Source - Use freely, modify as needed, attribute where appropriate
 **Philosophy:** "Fortress Mode" - Reliability over features
 
 **Special Thanks:**
+
 - Paul Stoffregen (Encoder Library)
 - Arduino Community
 - Industrial DRO design principles
@@ -269,6 +296,7 @@ Open Source - Use freely, modify as needed, attribute where appropriate
 ## 📞 Support
 
 **Issues?**
+
 1. Check the [walkthrough.md](docs/walkthrough.md)
 2. Review [WIRING.md](docs/WIRING.md)
 3. See [task.md](.gemini/antigravity/brain/task.md) for known issues
@@ -278,3 +306,14 @@ Open Source - Use freely, modify as needed, attribute where appropriate
 **Built with ❤️ for the machine shop**
 
 **Status:** Phase 2 Complete ✅ | Compiled Successfully | Ready for Hardware Testing
+
+---
+
+## 🤖 AI Command System
+
+The following commands are available for interacting with the AI assistant (Cline):
+
+- **/help**: Lists these commands.
+- **/mode [1|2|3]**: Switches operational mode (1: Step-by-step, 2: Task Confirmation, 3: Full Auto-pilot).
+- **/map**: Forces a re-scan of the codebase to update `ai_docs/CODEBASE_MAP.MD`.
+- **/reorient**: Forces re-reading of all `ai_docs/` to refresh context.
