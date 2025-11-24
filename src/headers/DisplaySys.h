@@ -5,6 +5,9 @@
 #include <LiquidCrystal_I2C.h>
 #include "Config.h"
 
+// Forward declaration for LCDBigNumbers
+class LCDBigNumbers;
+
 class DisplaySys {
 public:
     DisplaySys();
@@ -21,11 +24,25 @@ public:
 
 private:
     LiquidCrystal_I2C* _lcd;
+    LCDBigNumbers* _bigNumbers;
     
     // Cache to prevent flickering
     float _lastMM;
     bool _lastIsInch;
     String _lastLine[4];  // Cache all 4 lines for 20x4 LCD
+    
+    // Big number cache
+    float _lastBigValue;
+    String _lastBigUnit;
+    
+    // Temporal filtering for smooth updates
+    unsigned long _lastValueChangeMillis;
+    float _lastRawValue;
+    bool _wasSettled;  // Track if we just transitioned to settled state
+    float _lastVelocity;  // Track rate of change (cm/s or in/s)
+    
+    // Display mode tracking for proper custom char management
+    bool _inIdleMode;  // Track if we're displaying idle screen
     
     void printLine(int row, String text);
     void createCustomChars();
