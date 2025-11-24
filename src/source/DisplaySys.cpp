@@ -71,7 +71,7 @@ void DisplaySys::update() {
     // Placeholder
 }
 
-void DisplaySys::showIdle(float currentMM, float targetMM, uint8_t cutMode, uint8_t stockType, const char* stockStr, uint8_t faceVal, bool isInch) {
+void DisplaySys::showIdle(float currentMM, float targetMM, uint8_t cutMode, uint8_t stockType, const char* stockStr, uint8_t faceVal, bool isInch, bool reverseDir) {
     // ==========================================
     // BIG NUMBER LAYOUT (2x2 INDUSTRIAL on rows 0-1)
     // ==========================================
@@ -85,11 +85,18 @@ void DisplaySys::showIdle(float currentMM, float targetMM, uint8_t cutMode, uint
     if (!_inIdleMode) {
         _bigNumbers->begin();  // Reload big number custom characters
         _inIdleMode = true;
+        
+        // FIX: Clear screen to remove menu artifacts
+        _lcd->clear();
+        
         // Force full redraw
         _lastBigValue = -999.9;
         _lastBigUnit = "";
-        // Clear only line 3 cache to force stock info redraw
-        _lastLine[3] = "";
+        
+        // Reset all line caches to force redraw
+        for (int i = 0; i < 4; i++) {
+            _lastLine[i] = "";
+        }
     }
 
     // Convert measurement to display value
@@ -274,7 +281,7 @@ void DisplaySys::showHiddenInfo(float kerfMM, float diameter, bool reverseDir, b
 
 void DisplaySys::showMeasurement(float mm, bool isInch) {
     // Legacy method - can be removed or redirected to showIdle
-    showIdle(mm, 0, 0, 0, "", 0, isInch);
+    showIdle(mm, 0, 0, 0, "", 0, isInch, false);
 }
 
 void DisplaySys::showMenu(const char* title, String value, bool isEditMode) {
@@ -391,9 +398,9 @@ void DisplaySys::printLine(int row, String text) {
 }
 
 void DisplaySys::createCustomChars() {
-    // 0: Stats (Bar Chart) - Mapped via \x08
-    // Replaces Gear icon to satisfy "Statistics icons are not as they were"
-    uint8_t iconStats[8] = {0x00, 0x02, 0x0A, 0x0A, 0x1A, 0x1F, 0x00, 0x00};
+    // 0: Statistics/Bar Chart (User Defined - Updated)
+    // Used for Units in Settings and Statistics menus (via \x08 mapping)
+    uint8_t iconStats[8] = {0x00, 0x10, 0x10, 0x14, 0x15, 0x15, 0x1F, 0x00};
     _lcd->createChar(0, iconStats);
 
     // 1: Rectangular Tube
@@ -404,12 +411,26 @@ void DisplaySys::createCustomChars() {
     uint8_t iconAngle[8] = {0x00, 0x10, 0x10, 0x10, 0x10, 0x1F, 0x00, 0x00};
     _lcd->createChar(2, iconAngle);
     
-    // 3: Phi (Diameter)
-    uint8_t iconPhi[8] = {0x04, 0x0E, 0x15, 0x15, 0x0E, 0x04, 0x04, 0x00};
-    _lcd->createChar(3, iconPhi);
+    // 3: Gear (Calibration Icon)
+    uint8_t iconGear[8] = {0x00, 0x0E, 0x15, 0x15, 0x17, 0x11, 0x0E, 0x00};
+    _lcd->createChar(3, iconGear);
 
-    // 4: Blade (Saw/Kerf)
-    // Replaces Gear icon to satisfy "Kerf must have a blade"
-    uint8_t iconBlade[8] = {0x00, 0x04, 0x0E, 0x1F, 0x0E, 0x04, 0x00, 0x00};
+    // 4: Blade (User Defined - Updated)
+    // Used for Auto-Zero, Kerf Thickness, and AZ Threshold
+    uint8_t iconBlade[8] = {0x00, 0x18, 0x1C, 0x0E, 0x06, 0x07, 0x03, 0x00};
     _lcd->createChar(4, iconBlade);
+
+    // 5: Settings (Crosshair) - User Defined
+    // Replaces Gear icon
+    uint8_t iconSettings[8] = {0x00, 0x04, 0x04, 0x1F, 0x04, 0x04, 0x00, 0x00};
+    _lcd->createChar(5, iconSettings);
+
+    // 6: Direction (Double Arrow) - User Defined
+    // Replaces Calibration icon
+    uint8_t iconArrows[8] = {0x04, 0x0E, 0x1F, 0x00, 0x00, 0x1F, 0x0E, 0x04};
+    _lcd->createChar(6, iconArrows);
+
+    // 7: Angle (User Defined - Refined)
+    uint8_t iconAngleSym[8] = {0x00, 0x10, 0x18, 0x1C, 0x1E, 0x1F, 0x00, 0x00};
+    _lcd->createChar(7, iconAngleSym);
 }

@@ -13,6 +13,7 @@ void MenuSys::init(SystemSettings *settings, StatsSys *stats, AngleSensor *angle
 
     // Reset menu state
     _state = MENU_NAVIGATE;
+    _lastState = MENU_NAVIGATE; // Initialize last state
     _currentItem = 0;
     _scrollOffset = 0;
     _needsRedraw = true;
@@ -31,6 +32,14 @@ bool MenuSys::update(InputEvent e, DisplaySys *display, EncoderSys *encoder)
     {
         _exitRequest = true;
         return false;
+    }
+
+    // Check for state change and clear screen if needed
+    if (_state != _lastState)
+    {
+        display->clear();
+        _lastState = _state;
+        _needsRedraw = true;
     }
 
     // Force redraw for flashing warning
@@ -474,6 +483,8 @@ void MenuSys::handleSettingsSubmenu(InputEvent e)
             // Edit Auto-Zero Threshold
             _state = MENU_EDIT;
             _tempAZThresh = _settings->autoZeroThresholdMM;
+            _calibSubItem = -1;  // Prevent calibration edit logic from activating
+            _currentItem = -1;   // Prevent main menu edit logic from activating
         }
         else if (_settingsSubItem == 4)
         {
@@ -718,6 +729,25 @@ void MenuSys::handleEdit(InputEvent e)
         }
         else if (_calibSubItem == 3)
         {
+            // Kerf Thickness editing
+            if (e == EVENT_NEXT)
+                _tempKerf += 0.1;
+            else if (e == EVENT_PREV)
+                _tempKerf -= 0.1;
+            else if (e == EVENT_CLICK)
+            {
+                _settings->kerfMM = max(0.0f, _tempKerf);
+                _state = MENU_CALIBRATION_SUBMENU;
+            }
+            _needsRedraw = true;
+        }
+    }
+    // Settings Value Editing (from Settings submenu)
+    else if (_settingsSubItem >= 0 && _settingsSubItem <= 5 && _state == MENU_EDIT)
+    {
+        if (_settingsSubItem == 3)
+        {
+            // Auto-Zero Threshold editing
             if (e == EVENT_NEXT)
                 _tempAZThresh += 0.5;
             else if (e == EVENT_PREV)
@@ -725,7 +755,7 @@ void MenuSys::handleEdit(InputEvent e)
             else if (e == EVENT_CLICK)
             {
                 _settings->autoZeroThresholdMM = constrain(_tempAZThresh, 2.0, 20.0);
-                _state = MENU_CALIBRATION_SUBMENU;
+                _state = MENU_SETTINGS_SUBMENU;
             }
             _needsRedraw = true;
         }
@@ -1001,8 +1031,8 @@ void MenuSys::render(DisplaySys *display)
             const char *items[] = {"STOCK PROFILE", "CUT ANGLE", "STATISTICS", "CALIBRATION", "SETTINGS", "EXIT MENU"};
             // Use dynamic icon for stock based on current selection: 1=Rect, 2=Angle, 3=Cyl
             char stockIcon = (_settings->stockType == 0) ? 1 : (_settings->stockType == 1 ? 2 : 3);
-            // Icons: Stock(Dynamic), Angle(7), Stats(8), Calib(3-Phi), Settings(5-Units), Exit(Space)
-            // Changed Calib to Phi (3) per request
+            // Icons: Stock(Dynamic), Angle(7), Stats(8->0), Calib(3-Diameter), Settings(5-Crosshair), Exit(Space)
+            // Updated: Stats(8) maps to custom char 0 via printStr helper
             const char icons[] = {stockIcon, 7, 8, 3, 5, 32};
 
             s += String(icons[idx]) + " " + items[idx];
@@ -1033,9 +1063,9 @@ void MenuSys::render(DisplaySys *display)
         {
             bool editing = (_state == MENU_EDIT && selected);
             if (idx == 0)
-                s += "\x08 PROJECT STATS"; // Stats icon (Index 0 via \x08)
+                s += "\x08 PROJECT STATS"; // Stats icon via \x08 (maps to char 0)
             else if (idx == 1)
-                s += "\x08 GLOBAL STATS"; // Stats icon (Index 0 via \x08)
+                s += "\x08 GLOBAL STATS"; // Stats icon via \x08
             else if (idx == 2)
             {
                 s += "\x08 RATE: $"; // Stats icon + Dollar
@@ -1132,8 +1162,8 @@ void MenuSys::render(DisplaySys *display)
 
             if (idx == 0)
             {
-                // Units - use Units icon (5)
-                s += "\x05 UNITS: " + String(_settings->isInch ? "IMPERIAL" : "METRIC");
+                // Units - use Stats icon (8->0) for units
+                s += "\x08 UNITS : " + String(_settings->isInch ? "IMPERIAL" : "METRIC");
             }
             else if (idx == 1)
             {
@@ -1159,8 +1189,8 @@ void MenuSys::render(DisplaySys *display)
             }
             else if (idx == 4)
             {
-                // Direction - use Direction icon (6)
-                s += "\x06 DIR: " + String(_settings->reverseDirection ? "REV" : "FWD");
+                // Direction - use Double Arrow icon (6)
+                s += "\x06 DIR : " + String(_settings->reverseDirection ? "REV" : "FWD");
             }
             else if (idx == 5)
             {

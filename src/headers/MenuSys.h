@@ -51,6 +51,7 @@ private:
     StatsSys *_stats;
     AngleSensor *_angleSensor;
     MenuState _state;
+    MenuState _lastState; // Track previous state for screen clearing
     int8_t _currentItem;
     int8_t _scrollOffset; // Index of the item at the top of the screen
 

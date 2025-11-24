@@ -409,7 +409,7 @@ void loop()
         }
         else
         {
-            displaySys.showIdle(displayMM, targetMM, settings.cutMode, settings.stockType, stockStr, faceVal, settings.isInch);
+            displaySys.showIdle(displayMM, targetMM, settings.cutMode, settings.stockType, stockStr, faceVal, settings.isInch, settings.reverseDirection);
         }
         break;
     }
