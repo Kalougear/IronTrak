@@ -33,6 +33,8 @@ struct SystemSettings
     float hourlyRate = 30.0;
     unsigned long projectSeconds = 0;
     unsigned long totalSeconds = 0;
+
+
 };
 
 #endif // STORAGE_H
