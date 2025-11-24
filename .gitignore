@@ -34,3 +34,19 @@ __pycache__/
 
 # Logs
 *.log
+
+# AI Rules & Docs
+.clinerules/
+aidocs/
+.gitignore
+font_analysis_v2.py
+.gitignore
+docs/README.md
+ai_docs/TASK.MD
+ai_docs/PROJECT_OVERVIEW.MD
+ai_docs/PLANNING.MD
+ai_docs/LEARNINGS.MD
+ai_docs/GLOBAL_RULES.MD
+ai_docs/CODEBASE_MAP.MD
+ai_docs/ARCHITECTURE_DECISIONS.MD
+font_analysis.py
