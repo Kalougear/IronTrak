@@ -288,7 +288,9 @@ void DisplaySys::showMenu(const char* title, String value, bool isEditMode) {
     // Mark that we're leaving idle mode (so custom chars get reloaded on return)
     if (_inIdleMode) {
         _inIdleMode = false;
-        // Reload menu-specific custom characters (icons)
+        // Clear screen FIRST to prevent gibberish during character redefinition
+        _lcd->clear();
+        // Then reload menu-specific custom characters (icons)
         createCustomChars();
     }
     
@@ -335,7 +337,9 @@ void DisplaySys::showMenu4(String l0, String l1, String l2, String l3) {
     // Mark that we're leaving idle mode
     if (_inIdleMode) {
         _inIdleMode = false;
-        // Reload menu-specific custom characters (icons)
+        // Clear screen FIRST to prevent gibberish during character redefinition
+        _lcd->clear();
+        // Then reload menu-specific custom characters (icons)
         createCustomChars();
     }
     
