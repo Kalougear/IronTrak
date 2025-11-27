@@ -937,7 +937,7 @@ void MenuSys::renderStockSelectMenu(DisplaySys *display) {
     // LOOP BOUND: _stockPage has 3 states (0-2), explicit conditional ensures termination
     if (_stockPage == 0) {
         // Stock type selection
-        const char *types[] = {"RECTANGULAR", "ANGLE IRON", "CYLINDRICAL"};
+        const char *types[] = {"RECTANGULAR", "ANGLE IRON", "TUBE-PIPE"};
         const char icons[] = {1, 2, 3};
         l0 = formatHeader("STOCK TYPE");
         

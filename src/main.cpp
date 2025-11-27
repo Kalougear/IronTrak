@@ -422,6 +422,17 @@ void loop()
         InputEvent semanticEvent = toSemanticEvent(event);
         if (!menuSys.update(semanticEvent, &displaySys, &encoderSys))
         {
+            // GEMINI.md Rule 4.2: State Machine - Explicit state synchronization at boundaries
+            // Bug Fix: Prevent stale cutMode from causing incorrect angle offset calculations
+            if (settings.useAngleSensor)
+            {
+                float currentAngle = angleSensor.getAngleDegrees();
+                if (currentAngle < 0.0f) currentAngle = 0.0f;
+                if (currentAngle > 90.0f) currentAngle = 90.0f;
+                settings.cutMode = (uint8_t)(currentAngle + 0.5f);
+                if (settings.cutMode > 90) settings.cutMode = 0;
+            }
+            
             currentState = STATE_IDLE;
             encoderSys.setWheelDiameter(settings.wheelDiameter);
             azState = AZ_DISABLED;
