@@ -277,6 +277,11 @@ void loop()
     wdt_reset();
 #endif
 
+    // GEMINI.md Rule 4.2: Assertion - Validate system state
+    if (currentState < STATE_IDLE || currentState > STATE_ERROR) {
+        currentState = STATE_ERROR;  // Recovery: Force safe state
+    }
+
     // 1. Handle User Input
     InputEvent event = userInput.getEvent();
 
@@ -343,7 +348,7 @@ void loop()
                     float faceVal = (float)getFaceValue();
                     if (faceVal > 0)
                     {
-                        float rad = settings.cutMode * PI / 180.0;
+                        float rad = settings.cutMode * PI / 180.0f;
                         float offset = faceVal * tan(rad);
                         encoderSys.setOffset(offset);
                     }

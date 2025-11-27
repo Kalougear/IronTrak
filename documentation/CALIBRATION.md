@@ -17,6 +17,8 @@
 
 ---
 
+V
+
 ## 🎯 Overview
 
 ### What Needs Calibration?
@@ -26,10 +28,10 @@ The IronTrak encoder measures **fence position** by counting wheel rotations. Ac
 ### Calibration Accuracy
 
 | Wheel Diameter Error | Position Error @ 1 meter |
-|---------------------|-------------------------|
-| ±0.1mm | ±2mm |
-| ±0.5mm | ±10mm |
-| ±1.0mm | ±20mm |
+| -------------------- | ------------------------ |
+| ±0.1mm               | ±2mm                     |
+| ±0.5mm               | ±10mm                    |
+| ±1.0mm               | ±20mm                    |
 
 **Goal:** Calibrate within ±0.1mm for sub-mm accuracy across typical cutting ranges.
 
@@ -40,6 +42,7 @@ The IronTrak encoder measures **fence position** by counting wheel rotations. Ac
 ### 1. Physical Installation
 
 **Before calibrating:**
+
 1. Mount encoder securely to bandsaw fence
 2. Ensure wheel makes **solid contact** with fence rail (no slipping)
 3. Check for **smooth rotation** (no binding or wobble)
@@ -91,11 +94,13 @@ If display is blank, see [Troubleshooting](#troubleshooting).
 #### 2. Prepare Reference Measurement
 
 **You Need:**
+
 - Tape measure or precision ruler (metric preferred)
 - Flat reference surface or fence scale
 - Ability to move fence exactly 100mm
 
 **Display Shows:**
+
 ```
 ┌────────────────────┐
 │  Calibration Mode  │
@@ -118,6 +123,7 @@ If display is blank, see [Troubleshooting](#troubleshooting).
 #### 4. System Calculates
 
 **Display Shows:**
+
 ```
 ┌────────────────────┐
 │  Calculating...    │
@@ -128,6 +134,7 @@ If display is blank, see [Troubleshooting](#troubleshooting).
 ```
 
 **Formula:**
+
 ```
 wheelDiameter = (100mm × oldDiameter × π) / (pulses × π)
               = (100mm × oldDiameter) / pulses
@@ -148,6 +155,7 @@ wheelDiameter = (100mm × oldDiameter × π) / (pulses × π)
 ## 🔧 Manual Wheel Diameter Calibration
 
 **Use When:**
+
 - Auto wizard fails
 - You have a measured wheel diameter from calipers
 - Fine-tuning after initial calibration
@@ -173,6 +181,7 @@ wheelDiameter = (100mm × oldDiameter × π) / (pulses × π)
 ```
 
 **Example:**
+
 ```
 Measurement 1: 50.2mm
 Measurement 2: 50.3mm
@@ -219,6 +228,7 @@ Swap encoder A/B wires (PB6 ↔ PB7).
 **Currently:** AS5600 outputs absolute angle, no offset calibration available.
 
 **Planned:**
+
 - Zero angle offset setting
 - 45° reference point calibration
 - Linear interpolation for improved accuracy
@@ -241,11 +251,11 @@ Swap encoder A/B wires (PB6 ↔ PB7).
 
 ### Expected Results
 
-| Actual Position | IronTrak Reading | Error | Status |
-|----------------|------------------|-------|--------|
-| 100mm | 100.0 ± 0.5mm | <0.5% | ✅ Excellent |
-| 200mm | 200.0 ± 1.0mm | <0.5% | ✅ Excellent |
-| 500mm | 500.0 ± 2.5mm | <0.5% | ✅ Excellent |
+| Actual Position | IronTrak Reading | Error | Status       |
+| --------------- | ---------------- | ----- | ------------ |
+| 100mm           | 100.0 ± 0.5mm    | <0.5% | ✅ Excellent |
+| 200mm           | 200.0 ± 1.0mm    | <0.5% | ✅ Excellent |
+| 500mm           | 500.0 ± 2.5mm    | <0.5% | ✅ Excellent |
 
 **If errors exceed 1%:** Re-run auto calibration wizard.
 
@@ -269,6 +279,7 @@ Swap encoder A/B wires (PB6 ↔ PB7).
 **Cause:** Encoder not rotating during reference measurement.
 
 **Fix:**
+
 1. Check wheel contact with fence (slipping?)
 2. Verify encoder wiring (A/B channels connected)
 3. Monitor Serial1 debug output for pulse count
@@ -280,6 +291,7 @@ Swap encoder A/B wires (PB6 ↔ PB7).
 **Symptom:** Zero at start, reads +5mm after 10 cuts.
 
 **Causes:**
+
 1. **Wheel slip:** Encoder wheel slipping on fence rail
    - Fix: Add rubber coating or increase contact pressure
 2. **Thermal expansion:** Fence rail heating up
@@ -294,6 +306,7 @@ Swap encoder A/B wires (PB6 ↔ PB7).
 **Symptom:** Display jumps 147mm → 149mm → 152mm
 
 **Causes:**
+
 1. **Poor encoder contact**
    - Wheel binding or intermittent contact
 2. **Electrical noise**
@@ -309,6 +322,7 @@ Swap encoder A/B wires (PB6 ↔ PB7).
 **Example:** Wizard calculates 35mm or 70mm (expected ~50mm)
 
 **Causes:**
+
 1. **Incorrect reference measurement**
    - Moved 50mm instead of 100mm (result: 2x error)
    - Moved 200mm instead of 100mm (result: 0.5x error)
@@ -344,6 +358,7 @@ New_diameter = Old_diameter × (1 + Error)
 ```
 
 **Example:**
+
 ```
 Actual: 500.0mm (calipers)
 IronTrak: 502.5mm (display)
@@ -364,17 +379,20 @@ Repeat test cut. Error should now be <0.1%.
 ## 🎓 Best Practices
 
 ### Always Calibrate When:
+
 1. **First installation**
 2. **After moving the encoder mounting**
 3. **If wheel is replaced**
 4. **If accuracy degrades** (>1% error)
 
 ### Periodic Verification:
+
 - **Weekly:** Zero-check against fence scale
 - **Monthly:** 100mm verification test
 - **Quarterly:** Full accuracy verification to 1m
 
 ### Environmental Considerations:
+
 - **Temperature:** Metal expands ~0.01mm/m per 10°C
   - Re-zero when shop temperature changes significantly
 - **Vibration:** Tight mounting bolts, check periodically
@@ -385,6 +403,7 @@ Repeat test cut. Error should now be <0.1%.
 ## 📞 Support
 
 If calibration issues persist:
+
 1. Check Serial1 debug output (115200 baud, PA9/PA10)
 2. Document symptoms with photos/video
 3. Report via GitHub Issues

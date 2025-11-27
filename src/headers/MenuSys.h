@@ -111,6 +111,14 @@ private:
     void handleAngleWizard(InputEvent e);
     void handleStockSelect(InputEvent e);
     void handleEdit(InputEvent e);
+
+    // GEMINI.md Rule 4.2: Helper functions for getMenuItem() complexity reduction
+    String getMenuItemMain(int idx, bool selected);
+    String getMenuItemStatsSelect(int idx, bool selected);
+    String getMenuItemProjectStats(int idx, bool selected);
+    String getMenuItemGlobalStats(int idx, bool selected);
+    String getMenuItemCalibration(int idx, bool selected);
+    String getMenuItemSettings(int idx, bool selected);
 };
 
 #endif // MENUSYS_H

@@ -27,8 +27,12 @@ void UserInput::isrTick() {
 }
 
 InputEvent UserInput::getEvent() {
+    // GEMINI.md Rule 4.3.2: Critical Section - Atomic Access
+    // Prevent ISR from writing to _pendingEvent between read and clear
+    noInterrupts();
     InputEvent e = _pendingEvent;
-    _pendingEvent = EVENT_NONE; // Clear event after reading
+    _pendingEvent = EVENT_NONE;
+    interrupts();
     return e;
 }
 
@@ -81,6 +85,15 @@ void UserInput::handleEncoder() {
 }
 
 void UserInput::handleButton() {
+    // GEMINI.md Rule 4.2: Assertion - Validate millis() monotonicity
+    static unsigned long lastMillis = 0;
+    unsigned long currentMillis = millis();
+    if (currentMillis < lastMillis) {
+        // Recovery: Timer overflow (~50 days), reset tracking
+        _btnPressTime = currentMillis;
+    }
+    lastMillis = currentMillis;
+
     // Shift register debounce
     // Read pin (active low)
     bool pinVal = digitalRead(PIN_MENU_SW);

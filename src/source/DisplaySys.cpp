@@ -92,20 +92,21 @@ void DisplaySys::showIdle(float currentMM, float /* targetMM */, uint8_t cutMode
     
     // CRITICAL: Reload library characters when returning from menu
     if (!_inIdleMode) {
-        _bigNumbers->begin();  // Reload big number custom characters
         _inIdleMode = true;
-        _isTransitioning = true;  // Mark transition start
+        _isTransitioning = true;
         _transitionStartMillis = millis();
         
-        // Clear screen to remove menu artifacts
+        // Clear screen - fast and prevents corruption during char reload
         _lcd->clear();
+        
+        // Reload big number custom characters
+        _bigNumbers->begin();
         
         // Force full redraw
         _lastBigValue = -999.9f;
         _lastBigUnit = "";
         
-        // Reset all line caches to force redraw
-        // LOOP BOUND: Fixed size array (4 elements)
+        // Reset all line caches
         for (int i = 0; i < 4; i++) {
             _lastLine[i] = "";
         }
@@ -307,7 +308,7 @@ void DisplaySys::showMenu(const char* title, String value, bool isEditMode) {
     // Mark that we're leaving idle mode (so custom chars get reloaded on return)
     if (_inIdleMode) {
         _inIdleMode = false;
-        // Clear screen FIRST to prevent gibberish during character redefinition
+        // Clear screen - necessary to prevent gibberish during char redefinition
         _lcd->clear();
         // Then reload menu-specific custom characters (icons)
         createCustomChars();
@@ -356,7 +357,7 @@ void DisplaySys::showMenu4(String l0, String l1, String l2, String l3) {
     // Mark that we're leaving idle mode
     if (_inIdleMode) {
         _inIdleMode = false;
-        // Clear screen FIRST to prevent gibberish during character redefinition
+        // Clear screen - necessary to prevent gibberish
         _lcd->clear();
         // Then reload menu-specific custom characters (icons)
         createCustomChars();

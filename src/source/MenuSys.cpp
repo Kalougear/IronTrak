@@ -44,10 +44,10 @@ bool MenuSys::update(InputEvent e, DisplaySys *display, EncoderSys *encoder)
         return false;
     }
 
-    // Check for state change and clear screen if needed
+    // Check for state change and force redraw
+    // Note: No clear() needed - DisplaySys::showMenu4() handles line-by-line updates via cache
     if (_state != _lastState)
     {
-        display->clear();
         _lastState = _state;
         _needsRedraw = true;
     }
@@ -1085,9 +1085,138 @@ void MenuSys::renderScrollableMenu(DisplaySys *display, const String& /* title *
     display->showMenu4(l0, l1, l2, l3);
 }
 
+// ============================================================================
+// GEMINI.md Rule 4.2: Extracted Helper Functions (<60 lines each)
+// ============================================================================
+
+// GEMINI.md Rule 4.2: Helper - Main Menu Items
+String MenuSys::getMenuItemMain(int idx, bool selected) {
+    const char *items[] = {"STOCK PROFILE", "CUT ANGLE", "STATISTICS", "CALIBRATION", "SETTINGS", "EXIT MENU"};
+    char stockIcon = (_settings->stockType == 0) ? 1 : (_settings->stockType == 1 ? 2 : 3);
+    const char icons[] = {stockIcon, 7, 8, 3, 5, 32};
+    
+    if (idx >= 6) return "";
+    
+    String s = selected ? "> " : "  ";
+    s += String(icons[idx]) + " " + items[idx];
+    
+    if (idx == ITEM_CUT_MODE) {
+        bool editing = (_state == MENU_EDIT && selected);
+        uint8_t mode = editing ? _tempCutMode : _settings->cutMode;
+        s = selected ? "> " : "  ";
+        
+        if (_settings->useAngleSensor) {
+            s += "\x07 ANGLE IS AUTO";
+        } else {
+            s += "\x07 CUT ANGLE: ";
+            if (editing) s += "\x7E";
+            s += String(mode) + "\xDF";
+        }
+    }
+    return s;
+}
+
+String MenuSys::getMenuItemStatsSelect(int idx, bool selected) {
+    String s = selected ? "> " : "  ";
+    bool editing = (_state == MENU_EDIT && selected);
+    
+    switch (idx) {
+        case 0: s += "\x08 PROJECT STATS"; break;
+        case 1: s += "\x08 GLOBAL STATS"; break;
+        case 2:
+            s += "\x08 RATE: $";
+            if (editing)
+                s = "> \x7E \x08 RATE: $" + String(_tempRate, 2);
+            else
+                s += String(_settings->hourlyRate, 2) + "/HR";
+            break;
+        case 3: s += "  BACK"; break;
+        default: return "";
+    }
+    return s;
+}
+
+String MenuSys::getMenuItemProjectStats(int idx, bool selected) {
+    String s = selected ? "> " : "  ";
+    switch (idx) {
+        case 0: s += "\x04 CUTS: " + String(_stats->getProjectCuts()); break;
+        case 1: s += "\x04 LEN: " + String(_stats->getProjectLengthMeters(), 1) + " M"; break;
+        case 2: s += "\x01 WASTE: " + String(_stats->getProjectWasteMeters(), 2) + " M"; break;
+        case 3: {
+            unsigned long mins = _stats->getUptimeMinutes();
+            s += "\x08 TIME: " + String(mins / 60) + "H " + String(mins % 60) + "M";
+            break;
+        }
+        case 4: s += "$ COST: $" + String(_stats->getLaborCost(), 2); break;
+        case 5: s += "\x08 [ RESET PROJECT ]"; break;
+        case 6: s += "  BACK"; break;
+        default: return "";
+    }
+    return s;
+}
+
+String MenuSys::getMenuItemGlobalStats(int idx, bool selected) {
+    String s = selected ? "> " : "  ";
+    switch (idx) {
+        case 0: s += "\x04 TOT CUTS: " + String(_stats->getTotalCuts()); break;
+        case 1: s += "\x04 TOT LEN: " + String(_stats->getTotalLengthMeters(), 1) + " M"; break;
+        case 2: s += "\x01 TOT WASTE: " + String(_stats->getTotalWasteMeters(), 1) + " M"; break;
+        case 3: s += "\x08 TOT TIME: " + String((int)_stats->getTotalHours()) + " H"; break;
+        case 4: s += "  BACK"; break;
+        default: return "";
+    }
+    return s;
+}
+
+String MenuSys::getMenuItemCalibration(int idx, bool selected) {
+    String s = selected ? "> " : "  ";
+    bool editing = (_state == MENU_EDIT && selected);
+    
+    switch (idx) {
+        case 0: s += "\x03 WHEEL WIZARD"; break;
+        case 1: s += "\x07 ANGLE WIZARD"; break;
+        case 2:
+            if (editing)
+                s = "> \x7E \x03 WHEEL: " + String(_tempDia, 1);
+            else
+                s += "\x03 WHEEL: " + String(_settings->wheelDiameter, 1) + " MM";
+            break;
+        case 3:
+            if (editing)
+                s = "> \x7E \x04 KERF: " + String(_tempKerf, 1);
+            else
+                s += "\x04 KERF: " + String(_settings->kerfMM, 1) + " MM";
+            break;
+        case 4: s += "  BACK"; break;
+        default: return "";
+    }
+    return s;
+}
+
+String MenuSys::getMenuItemSettings(int idx, bool selected) {
+    String s = selected ? "> " : "  ";
+    bool editing = (_state == MENU_EDIT && selected);
+    
+    switch (idx) {
+        case 0: s += "\x08 UNITS : " + String(_settings->isInch ? "IMPERIAL" : "METRIC"); break;
+        case 1: s += "\x07 ANGLE SRC: " + String(_settings->useAngleSensor ? "AUTO" : "MAN"); break;
+        case 2: s += "\x04 AUTO-ZERO: " + String(_settings->autoZeroEnabled ? "ON" : "OFF"); break;
+        case 3:
+            if (editing)
+                s = "> \x7E \x04 AZ THRESH: " + String(_tempAZThresh, 1);
+            else
+                s += "\x04 AZ THRESH: " + String(_settings->autoZeroThresholdMM, 1);
+            break;
+        case 4: s += "\x06 DIR : " + String(_settings->reverseDirection ? "REV" : "FWD"); break;
+        case 5: s += "  BACK"; break;
+        default: return "";
+    }
+    return s;
+}
+
 // GEMINI.md Rule 4.2: Menu item renderer with robust bounds checking
-// NOTE: Still >60 lines due to state complexity - documented as accepted technical debt
-// BACKUP: Original logic preserved in MenuSys_renderItem_BACKUP.cpp
+// NOTE: Refactored to <60 lines by delegating to helper functions
+//
 String MenuSys::getMenuItem(int idx, int currentItem, int itemCount) {
     // GEMINI.md Rule 4.2: Assertion 1 - Bounds check
     if (idx < 0 || idx >= itemCount) {
@@ -1100,132 +1229,33 @@ String MenuSys::getMenuItem(int idx, int currentItem, int itemCount) {
     }
     
     bool selected = (idx == currentItem);
-    String s = selected ? "> " : "  ";
     
     // === MAIN MENU & CUT ANGLE EDIT ===
     if (_state == MENU_NAVIGATE || (_state == MENU_EDIT && _currentItem == ITEM_CUT_MODE)) {
-        // LOOP BOUND: Array bounds statically defined (6 items)
-        const char *items[] = {"STOCK PROFILE", "CUT ANGLE", "STATISTICS", "CALIBRATION", "SETTINGS", "EXIT MENU"};
-        char stockIcon = (_settings->stockType == 0) ? 1 : (_settings->stockType == 1 ? 2 : 3);
-        const char icons[] = {stockIcon, 7, 8, 3, 5, 32};
-        
-        // Bounds check before array access
-        if (idx >= 6) return "";
-        
-        s += String(icons[idx]) + " " + items[idx];
-        
-        // Special handling for CUT ANGLE item with edit mode
-        if (idx == ITEM_CUT_MODE) {
-            bool editing = (_state == MENU_EDIT && selected);
-            uint8_t mode = editing ? _tempCutMode : _settings->cutMode;
-            s = selected ? "> " : "  ";  // Reset for special formatting
-            
-            if (_settings->useAngleSensor) {
-                s += "\x07 ANGLE IS AUTO";
-            } else {
-                s += "\x07 CUT ANGLE: ";
-                if (editing) s += "\x7E";
-                s += String(mode) + "\xDF";
-            }
-        }
+        return getMenuItemMain(idx, selected);
     }
     // === STATS MENU ===
     else if (_state == MENU_STATS_SELECT || (_state == MENU_EDIT && _statsSubItem == 2)) {
-        bool editing = (_state == MENU_EDIT && selected);
-        
-        // LOOP BOUND: 4 items in stats menu
-        switch (idx) {
-            case 0: s += "\x08 PROJECT STATS"; break;
-            case 1: s += "\x08 GLOBAL STATS"; break;
-            case 2:
-                s += "\x08 RATE: $";
-                if (editing)
-                    s = "> \x7E \x08 RATE: $" + String(_tempRate, 2);
-                else
-                    s += String(_settings->hourlyRate, 2) + "/HR";
-                break;
-            case 3: s += "  BACK"; break;
-            default: return "";  // Bounds safety
-        }
+        return getMenuItemStatsSelect(idx, selected);
     }
     // === PROJECT STATS ===
     else if (_state == MENU_STATS_PROJECT) {
-        // LOOP BOUND: 7 items in project stats
-        switch (idx) {
-            case 0: s += "\x04 CUTS: " + String(_stats->getProjectCuts()); break;
-            case 1: s += "\x04 LEN: " + String(_stats->getProjectLengthMeters(), 1) + " M"; break;
-            case 2: s += "\x01 WASTE: " + String(_stats->getProjectWasteMeters(), 2) + " M"; break;
-            case 3: {
-                unsigned long mins = _stats->getUptimeMinutes();
-                s += "\x08 TIME: " + String(mins / 60) + "H " + String(mins % 60) + "M";
-                break;
-            }
-            case 4: s += "$ COST: $" + String(_stats->getLaborCost(), 2); break;
-            case 5: s += "\x08 [ RESET PROJECT ]"; break;
-            case 6: s += "  BACK"; break;
-            default: return "";
-        }
+        return getMenuItemProjectStats(idx, selected);
     }
     // === GLOBAL STATS ===
     else if (_state == MENU_STATS_GLOBAL) {
-        // LOOP BOUND: 5 items in global stats
-        switch (idx) {
-            case 0: s += "\x04 TOT CUTS: " + String(_stats->getTotalCuts()); break;
-            case 1: s += "\x04 TOT LEN: " + String(_stats->getTotalLengthMeters(), 1) + " M"; break;
-            case 2: s += "\x01 TOT WASTE: " + String(_stats->getTotalWasteMeters(), 1) + " M"; break;
-            case 3: s += "\x08 TOT TIME: " + String((int)_stats->getTotalHours()) + " H"; break;
-            case 4: s += "  BACK"; break;
-            default: return "";
-        }
+        return getMenuItemGlobalStats(idx, selected);
     }
     // === CALIBRATION SUBMENU ===
     else if (_state == MENU_CALIBRATION_SUBMENU || (_state == MENU_EDIT && _calibSubItem >= 0 && _settingsSubItem < 0)) {
-        bool editing = (_state == MENU_EDIT && selected);
-        
-        // LOOP BOUND: 5 items in calibration menu
-        switch (idx) {
-            case 0: s += "\x03 WHEEL WIZARD"; break;
-            case 1: s += "\x07 ANGLE WIZARD"; break;
-            case 2:
-                if (editing)
-                    s = "> \x7E \x03 WHEEL: " + String(_tempDia, 1);
-                else
-                    s += "\x03 WHEEL: " + String(_settings->wheelDiameter, 1) + " MM";
-                break;
-            case 3:
-                if (editing)
-                    s = "> \x7E \x04 KERF: " + String(_tempKerf, 1);
-                else
-                    s += "\x04 KERF: " + String(_settings->kerfMM, 1) + " MM";
-                break;
-            case 4: s += "  BACK"; break;
-            default: return "";
-        }
+        return getMenuItemCalibration(idx, selected);
     }
     // === SETTINGS SUBMENU ===
     else if (_state == MENU_SETTINGS_SUBMENU || (_state == MENU_EDIT && _settingsSubItem >= 0 && _calibSubItem < 0)) {
-        bool editing = (_state == MENU_EDIT && selected);
-        
-        // LOOP BOUND: 6 items in settings menu
-        switch (idx) {
-            case 0: s += "\x08 UNITS : " + String(_settings->isInch ? "IMPERIAL" : "METRIC"); break;
-            case 1: s += "\x07 ANGLE SRC: " + String(_settings->useAngleSensor ? "AUTO" : "MAN"); break;
-            case 2: s += "\x04 AUTO-ZERO: " + String(_settings->autoZeroEnabled ? "ON" : "OFF"); break;
-            case 3:
-                if (editing)
-                    s = "> \x7E \x04 AZ THRESH: " + String(_tempAZThresh, 1);
-                else
-                    s += "\x04 AZ THRESH: " + String(_settings->autoZeroThresholdMM, 1);
-                break;
-            case 4: s += "\x06 DIR : " + String(_settings->reverseDirection ? "REV" : "FWD"); break;
-            case 5: s += "  BACK"; break;
-            default: return "";
-        }
+        return getMenuItemSettings(idx, selected);
     }
     else {
         // Fallback for unknown state
         return "ERR:STATE";
     }
-    
-    return s;
 }
