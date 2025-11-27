@@ -40,8 +40,28 @@ void UserInput::handleEncoder() {
 
     // State transition table for rotary encoder
     // This handles the 4 steps of a quadrature encoder
-    if(sum == 0b1101 || sum == 0b0100 || sum == 0b0010 || sum == 0b1011) _encoderValue++;
-    if(sum == 0b1110 || sum == 0b0111 || sum == 0b0001 || sum == 0b1000) _encoderValue--;
+    // Track direction to detect changes
+    static int8_t lastDirection = 0;  // -1 = CCW, 0 = none, 1 = CW
+    int8_t currentDirection = 0;
+    
+    if(sum == 0b1101 || sum == 0b0100 || sum == 0b0010 || sum == 0b1011) {
+        _encoderValue++;
+        currentDirection = 1;  // CW
+    }
+    if(sum == 0b1110 || sum == 0b0111 || sum == 0b0001 || sum == 0b1000) {
+        _encoderValue--;
+        currentDirection = -1;  // CCW
+    }
+
+    // FIX: Detect direction change and reset accumulator
+    // This eliminates hysteresis/dead zone when switching directions
+    if (currentDirection != 0 && lastDirection != 0 && currentDirection != lastDirection) {
+        _encoderValue = currentDirection;  // Reset to current direction's first tick
+    }
+    
+    if (currentDirection != 0) {
+        lastDirection = currentDirection;
+    }
 
     _lastEncoded = encoded; // Store this value for next time
     
@@ -52,9 +72,11 @@ void UserInput::handleEncoder() {
     if (_encoderValue >= 4) {
         _pendingEvent = EVENT_CW;
         _encoderValue = 0;
+        lastDirection = 0;  // Reset after event
     } else if (_encoderValue <= -4) {
         _pendingEvent = EVENT_CCW;
         _encoderValue = 0;
+        lastDirection = 0;  // Reset after event
     }
 }
 

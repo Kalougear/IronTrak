@@ -6,7 +6,7 @@ StatsSys::StatsSys() {
 
 void StatsSys::init(SystemSettings* settings) {
     _settings = settings;
-    _lastCutLen = 0.0;
+    _lastCutLen = 0.0f;
 }
 
 void StatsSys::registerCut(float lengthMM) {
@@ -31,7 +31,7 @@ void StatsSys::registerCut(float lengthMM) {
 
 void StatsSys::resetProject() {
     _settings->projectCuts = 0;
-    _settings->projectLengthMeters = 0.0;
+    _settings->projectLengthMeters = 0.0f;
     _settings->projectSeconds = 0;
     // Storage::save(*_settings); // Disabled - Will use AT24C256 EEPROM
 }

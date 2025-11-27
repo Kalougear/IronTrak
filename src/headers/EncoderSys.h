@@ -27,6 +27,11 @@ public:
     void setOffset(float offsetMM);
 
 private:
+    // GEMINI.md Rule 4.2: Validation constants for parameter checking
+    static constexpr float MIN_WHEEL_DIA_MM = 1.0f;
+    static constexpr float MAX_WHEEL_DIA_MM = 500.0f;
+    
+
 #if defined(STM32F4xx)
     HardwareTimer* _timer;
     volatile long _overflowCount;

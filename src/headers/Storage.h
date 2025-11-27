@@ -5,20 +5,20 @@
 
 struct SystemSettings
 {
-    float wheelDiameter = 50.0;
+    float wheelDiameter = 50.0f;
     bool isInch = false;
     bool reverseDirection = false;
     unsigned long totalCuts = 0;
-    float totalLengthMeters = 0.0;
+    float totalLengthMeters = 0.0f;
     unsigned long projectCuts = 0;
-    float projectLengthMeters = 0.0;
+    float projectLengthMeters = 0.0f;
 
     // Phase 2 Settings
-    float kerfMM = 0.0;
+    float kerfMM = 0.0f;
     bool autoZeroEnabled = false;
-    float autoZeroThresholdMM = 5.0;
+    float autoZeroThresholdMM = 5.0f;
     uint8_t cutMode = 0;
-    float cutAngle = 45.0;
+    float cutAngle = 45.0f;
     uint8_t stockType = 0;
     uint8_t stockIdx = 0;
     uint8_t faceIdx = 0;
@@ -30,7 +30,7 @@ struct SystemSettings
     bool useAngleSensor = false;
 
     // Time & Cost
-    float hourlyRate = 30.0;
+    float hourlyRate = 30.0f;
     unsigned long projectSeconds = 0;
     unsigned long totalSeconds = 0;
 

@@ -5,7 +5,7 @@
 #define REG_STATUS 0x0B
 
 AngleSensor::AngleSensor() {
-    _lastDegrees = 0.0;
+    _lastDegrees = 0.0f;
     _rawZero = 0;
     _raw45 = 512;
 }

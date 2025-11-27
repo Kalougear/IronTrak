@@ -46,8 +46,16 @@ private:
     // Display mode tracking for proper custom char management
     bool _inIdleMode;  // Track if we're displaying idle screen
     
+    
+    // GEMINI.md Rule 4.2: Helper functions to keep showIdle() < 60 lines
+    float applyVelocityFiltering(float rawValue, bool isInch, unsigned long currentMillis);
+    void renderBigNumber(float displayValue, const String& unitStr, bool justSettled);
+    void renderSeparatorLine();
+    void renderInfoLine(uint8_t stockType, const char* stockStr, uint8_t cutMode, uint8_t faceVal);
+    
     void printLine(int row, String text);
     void createCustomChars();
+
 };
 
 #endif // DISPLAYSYS_H

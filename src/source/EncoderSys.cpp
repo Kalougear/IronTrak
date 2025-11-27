@@ -20,12 +20,23 @@ void EncoderSys::init() {
     pinMode(PB6, INPUT_PULLUP);
     pinMode(PB7, INPUT_PULLUP);
 
+
     // 2. Initialize Hardware Timer
-    _timer = new HardwareTimer(TIM4);
+    // GEMINI.md Rule 4.2: ZERO dynamic allocation - use static instance
+    static HardwareTimer timerInstance(TIM4);
+    _timer = &timerInstance;
+    
     
     // 3. EXPLICITLY Force GPIO to Alternate Function Mode (AF2 for TIM4)
     // pinMode sets them to Input, which disconnects the timer. We must reconnect it.
-    GPIO_InitTypeDef GPIO_InitStruct = {0};
+    // GEMINI.md: Explicit struct initialization to satisfy -Wextra
+    GPIO_InitTypeDef GPIO_InitStruct = {
+        .Pin = 0,
+        .Mode = 0,
+        .Pull = 0,
+        .Speed = 0,
+        .Alternate = 0
+    };
     
     // Enable GPIOB Clock
     __HAL_RCC_GPIOB_CLK_ENABLE();
@@ -57,9 +68,16 @@ void EncoderSys::init() {
     encoderConfig.IC2Prescaler = TIM_ICPSC_DIV1;
     encoderConfig.IC2Filter = 0x0F; // Add some filtering
     
+    
+    // GEMINI.md Rule 3.1: Return value checking with explicit recovery
     if (HAL_TIM_Encoder_Init(halTimer, &encoderConfig) != HAL_OK) {
-        // Error handling if needed
+        #if defined(USE_SERIAL_DEBUG)
+        Serial1.println("ERROR: Encoder init failed!");
+        #endif
+        // Recovery: Halt system - watchdog will reset
+        while(1);
     }
+    
     
     // Start the encoder!
     HAL_TIM_Encoder_Start(halTimer, TIM_CHANNEL_ALL);
@@ -78,7 +96,10 @@ void EncoderSys::init() {
     _overflowCount = 0;
 #else
     // AVR Software Interrupt Implementation
-    _encoder = new Encoder(PIN_ENCODER_A, PIN_ENCODER_B);
+    // GEMINI.md Rule 4.2: ZERO dynamic allocation - use static instance
+    static Encoder encoderInstance(PIN_ENCODER_A, PIN_ENCODER_B);
+    _encoder = &encoderInstance;
+
 #endif
     
     reset();
@@ -145,9 +166,21 @@ float EncoderSys::getDistanceMM() {
 }
 
 void EncoderSys::setWheelDiameter(float diameterMM) {
+    // GEMINI.md Rule 4.2: Assertion 1 - Range validation
+    if (diameterMM < MIN_WHEEL_DIA_MM || diameterMM > MAX_WHEEL_DIA_MM) {
+        // Recovery: Clamp to safe default instead of crashing
+        diameterMM = DEFAULT_WHEEL_DIA_MM;
+    }
+    
+    // GEMINI.md Rule 4.2: Assertion 2 - Verify not NaN/Inf
+    if (!isfinite(diameterMM)) {
+        diameterMM = DEFAULT_WHEEL_DIA_MM;
+    }
+    
     _wheelDiameter = diameterMM;
     recalculateCalibration();
 }
+
 
 float EncoderSys::getWheelDiameter() {
     return _wheelDiameter;

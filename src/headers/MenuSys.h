@@ -89,6 +89,17 @@ private:
     unsigned long _lastActivityTime; // For 15-second timeout
     unsigned long _warningEndTime;   // For flashing messages
 
+    // GEMINI.md Rule 4.2: Static helpers for render() refactoring (<60 lines each)
+    static String formatHeader(const String& s);
+    static String formatCenter(const String& s);
+    
+    // GEMINI.md Rule 4.2: Per-state rendering methods (extracted from render())
+    void renderAutoCalibWizard(DisplaySys *display);
+    void renderAngleWizard(DisplaySys *display);
+    void renderStockSelectMenu(DisplaySys *display);
+    void renderScrollableMenu(DisplaySys *display, const String& title, int currentItem, int scrollOffset, int itemCount);
+    String getMenuItem(int idx, int currentItem, int itemCount);
+
     void render(DisplaySys *display);
     void handleNavigation(InputEvent e);
     void handleStatsSelect(InputEvent e);

@@ -37,7 +37,7 @@ enum AutoZeroState
     AZ_ARMED
 };
 AutoZeroState azState = AZ_DISABLED;
-float lockedPosition = 0.0;
+float lockedPosition = 0.0f;
 unsigned long stillnessStartTime = 0;
 
 // Double-click detection
@@ -232,10 +232,13 @@ void setup()
     // 3. Configure Timer for 1kHz Interrupt
     Serial1.println("Configuring TIM3 for 1kHz tick...");
 #if defined(STM32F4xx)
-    tickTimer = new HardwareTimer(TIM3);
+    // GEMINI.md Rule 4.2: ZERO dynamic allocation - use static instance
+    static HardwareTimer tickTimerInstance(TIM3);
+    tickTimer = &tickTimerInstance;
     tickTimer->setOverflow(1000, HERTZ_FORMAT);
     tickTimer->attachInterrupt(Timer1_Callback);
     tickTimer->resume();
+
     Serial1.println("TIM3 OK");
 #else
     noInterrupts();

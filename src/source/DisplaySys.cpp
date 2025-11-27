@@ -15,17 +15,23 @@ static void printStr(LiquidCrystal_I2C* lcd, String s) {
 }
 
 DisplaySys::DisplaySys() {
-    _lcd = new LiquidCrystal_I2C(LCD_ADDR, LCD_COLS, LCD_ROWS);
+    // GEMINI.md Rule 4.2: ZERO dynamic allocation - use static instances
+    static LiquidCrystal_I2C lcdInstance(LCD_ADDR, LCD_COLS, LCD_ROWS);
+    _lcd = &lcdInstance;
+    
     // Using LCDBigNumbers 3x2 VARIANT_2 (no 0xFF blocks, all custom chars)
-    _bigNumbers = new LCDBigNumbers(_lcd, BIG_NUMBERS_FONT_3_COLUMN_2_ROWS_VARIANT_2);
-    _lastMM = -999.9;
+    static LCDBigNumbers bigNumInstance(&lcdInstance, BIG_NUMBERS_FONT_3_COLUMN_2_ROWS_VARIANT_2);
+    _bigNumbers = &bigNumInstance;
+    
+    // GEMINI.md Rule 4.5: Float literals must have 'f' suffix
+    _lastMM = -999.9f;
     _lastIsInch = false;
-    _lastBigValue = -999.9;
+    _lastBigValue = -999.9f;
     _lastBigUnit = "";
     _lastValueChangeMillis = 0;
-    _lastRawValue = -999.9;
+    _lastRawValue = -999.9f;
     _wasSettled = false;
-    _lastVelocity = 0.0;
+    _lastVelocity = 0.0f;
     _inIdleMode = false;
     for (int i = 0; i < 4; i++) {
         _lastLine[i] = "";
@@ -71,58 +77,82 @@ void DisplaySys::update() {
     // Placeholder
 }
 
-void DisplaySys::showIdle(float currentMM, float targetMM, uint8_t cutMode, uint8_t stockType, const char* stockStr, uint8_t faceVal, bool isInch, bool reverseDir) {
+void DisplaySys::showIdle(float currentMM, float /* targetMM */, uint8_t cutMode, uint8_t stockType, const char* stockStr, uint8_t faceVal, bool isInch, bool /* reverseDir  */) {
+    // GEMINI.md Rule 4.2: Assertion 1 - Validate pointer parameters
+    if (stockStr == nullptr) {
+        stockStr = "???";  // Safe fallback
+    }
+    
     // ==========================================
-    // BIG NUMBER LAYOUT (2x2 INDUSTRIAL on rows 0-1)
+    // GEMINI.md Rule 4.2: Refactored to < 60 lines
+    // Logic extracted to helper functions
     // ==========================================
-    // Row 0-1: [52.3]           (CUSTOM INDUSTRIAL 2x2, CRISP 2-PIXEL BARS)
-    //            CM (bottom right)
-    // Row 2:   ====================
-    // Row 3:   █ 20x40 ANG 45° F:20
-    // ==========================================
-
+    
     // CRITICAL: Reload library characters when returning from menu
     if (!_inIdleMode) {
         _bigNumbers->begin();  // Reload big number custom characters
         _inIdleMode = true;
         
-        // FIX: Clear screen to remove menu artifacts
+        // Clear screen to remove menu artifacts
         _lcd->clear();
         
         // Force full redraw
-        _lastBigValue = -999.9;
+        _lastBigValue = -999.9f;
         _lastBigUnit = "";
         
         // Reset all line caches to force redraw
+        // LOOP BOUND: Fixed size array (4 elements)
         for (int i = 0; i < 4; i++) {
             _lastLine[i] = "";
         }
     }
-
+    
     // Convert measurement to display value
     float rawValue;
     String unitStr;
     
     if (isInch) {
-        rawValue = currentMM / 25.4;  // mm to inches
+        rawValue = currentMM / 25.4f;  // mm to inches
         unitStr = "IN";
     } else {
-        rawValue = currentMM / 10.0;  // mm to cm
+        rawValue = currentMM / 10.0f;  // mm to cm
         unitStr = "CM";
     }
     
-    // === VELOCITY-BASED ADAPTIVE FILTERING ===
-    // Track value changes for velocity calculation and settling detection
+    // Apply velocity-based adaptive filtering (Helper 1)
     unsigned long currentMillis = millis();
+    float displayValue = applyVelocityFiltering(rawValue, isInch, currentMillis);
+    
+    // Detect settling transition to force exact value update
+    bool isSettled = (currentMillis - _lastValueChangeMillis) > 150;
+    bool justSettled = (isSettled && !_wasSettled);
+    _wasSettled = isSettled;
+    
+    // Render big number with unit (Helper 2)
+    renderBigNumber(displayValue, unitStr, justSettled);
+    
+    // Render separator line (Helper 3)
+    renderSeparatorLine();
+    
+    // Render stock info line (Helper 4)
+    renderInfoLine(stockType, stockStr, cutMode, faceVal);
+}
+
+// ============================================================================
+// GEMINI.md Rule 4.2: Helper Functions (Extracted from showIdle)
+// ============================================================================
+
+// Helper 1: Apply velocity-based filtering to smooth measurement display
+float DisplaySys::applyVelocityFiltering(float rawValue, bool /* isInch */, unsigned long currentMillis) {
     const unsigned long SETTLING_DELAY = 150;  // 150ms settling time
     
     // Calculate velocity (rate of change in cm/s or in/s)
-    float velocity = 0.0;
+    float velocity = 0.0f;
     unsigned long deltaTime = currentMillis - _lastValueChangeMillis;
     
-    if (abs(rawValue - _lastRawValue) > 0.01 && deltaTime > 0) {
+    if (abs(rawValue - _lastRawValue) > 0.01f && deltaTime > 0) {
         float deltaValue = abs(rawValue - _lastRawValue);
-        velocity = (deltaValue / deltaTime) * 1000.0;  // Convert to per second
+        velocity = (deltaValue / deltaTime) * 1000.0f;  // Convert to per second
         _lastValueChangeMillis = currentMillis;
         _lastRawValue = rawValue;
         _lastVelocity = velocity;  // Store for smoothing
@@ -133,117 +163,94 @@ void DisplaySys::showIdle(float currentMM, float targetMM, uint8_t cutMode, uint
     
     // Determine if settled
     bool isSettled = (currentMillis - _lastValueChangeMillis) > SETTLING_DELAY;
+    
+    // Velocity-based rounding
+    const float FAST_THRESHOLD = 5.0f;   // cm/s or in/s - fast movement
+    const float SLOW_THRESHOLD = 2.0f;   // cm/s or in/s - slow movement
+    
     float displayValue;
-    
-    // === VELOCITY-BASED ROUNDING ===
-    // Velocity thresholds (adjust these for your preference)
-    const float FAST_THRESHOLD = 5.0;   // cm/s or in/s - fast movement
-    const float SLOW_THRESHOLD = 2.0;   // cm/s or in/s - slow movement
-    
     if (isSettled) {
-        // Settled: show exact value with 0.1 precision
-        displayValue = rawValue;
+        displayValue = rawValue;  // Settled: show exact value
     } else if (velocity > FAST_THRESHOLD) {
-        // Fast movement: round to 1.0 (ultra smooth)
-        displayValue = round(rawValue);
+        displayValue = round(rawValue);  // Fast: round to 1.0
     } else if (velocity > SLOW_THRESHOLD) {
-        // Medium movement: round to 0.5
-        displayValue = round(rawValue * 2.0) / 2.0;
+        displayValue = round(rawValue * 2.0f) / 2.0f;  // Medium: round to 0.5
     } else {
-        // Slow movement: round to 0.2 for finer granularity
-        displayValue = round(rawValue * 5.0) / 5.0;
+        displayValue = round(rawValue * 5.0f) / 5.0f;  // Slow: round to 0.2
     }
     
-    // Detect settling transition to force exact value update
-    bool justSettled = (isSettled && !_wasSettled);
-    _wasSettled = isSettled;
-    
-    // Redraw if: value changed OR unit changed OR just settled (to show exact value)
-    // Use smaller threshold (0.15) for more responsive updates with velocity filtering
-    if (abs(displayValue - _lastBigValue) > 0.15 || unitStr != _lastBigUnit || justSettled) {
-        // === AUTO-RANGING LOGIC ===
-        // If value > 999.9 CM, switch to Meters
-        // 1000.0 CM -> 10.0 M (Single Decimal to fit 4 chars)
+    return displayValue;
+}
+
+// Helper 2: Render big number with unit label
+void DisplaySys::renderBigNumber(float displayValue, const String& unitStr, bool justSettled) {
+    // Redraw if: value changed OR unit changed OR just settled
+    if (abs(displayValue - _lastBigValue) > 0.15f || unitStr != _lastBigUnit || justSettled) {
+        // Auto-ranging: CM → M if > 999.9
         float effectiveValue = displayValue;
-        String effectiveUnit = "CM"; 
-        int precision = 1; 
+        String effectiveUnit = "CM";
+        int precision =  1;
         
-        // Strict check using unitStr
-        if (unitStr == "CM" && effectiveValue >= 999.95) { 
-            effectiveValue /= 100.0;
+        if (unitStr == "CM" && effectiveValue >= 999.95f) {
+            effectiveValue /= 100.0f;
             effectiveUnit = "M";
-            precision = 1; // Must use 1 decimal to keep length = 4 chars (fits without shifting)
+            precision = 1;  // Keep length = 4 chars
         } else if (unitStr == "IN") {
-             effectiveUnit = "IN";
+            effectiveUnit = "IN";
         }
         
         // Format number
         char buffer[10];
         dtostrf(effectiveValue, 0, precision, buffer);
         String numStr = String(buffer);
-        
         int originalLength = numStr.length();
         
-        // === FIXED ANCHOR FORMATTING ===
-        // Start at Column 4 (Shifted 1 box right from 3)
-        // "99.9" (4 chars) -> Cols 4-19 (Ends at 19).
-        // "CM" at 18,19 -> Overlap at 18,19.
-        // User explicitly requested "move 1 column right" despite overlap.
-        int startCol = 4;
-        
-        // === SMART CLEARING: Only clear when digit count changes ===
+        // Smart clearing: Only clear when digit count changes
         static int lastNumLength = 0;
         if (originalLength != lastNumLength) {
             _lcd->setCursor(0, 0);
-            _lcd->print("                    "); // 20 spaces
+            _lcd->print("                    ");  // 20 spaces
             _lcd->setCursor(0, 1);
-            _lcd->print("                    "); // 20 spaces
+            _lcd->print("                    ");
             lastNumLength = originalLength;
         }
         
-        // Draw big numbers
-        _bigNumbers->setBigNumberCursor(startCol, 0);
+        // Draw big numbers at column 4
+        _bigNumbers->setBigNumberCursor(4, 0);
         _bigNumbers->print(numStr.c_str());
         
         _lastBigValue = displayValue;
-        _lastBigUnit = unitStr; // Track original unit
+        _lastBigUnit = unitStr;
         
-        // Unit label at row 1, fixed at column 18
+        // Unit label at row 1, column 18
         _lcd->setCursor(18, 1);
-        if (effectiveUnit == "M") {
-            _lcd->print(" M"); // Space then M (aligns M at 19)
-        } else {
-            _lcd->print("CM"); // CM at 18,19
-        }
+        _lcd->print(effectiveUnit == "M" ? " M" : "CM");
     } else {
-        // Even if value didn't change, ensure unit is visible
-        String currentUnit = "CM";
-        if (unitStr == "IN") currentUnit = "IN";
-        else if (displayValue >= 999.95) currentUnit = "M";
-        
+        // Ensure unit remains visible even if value didn't change
+        String currentUnit = (unitStr == "IN") ? "IN" : ((displayValue >= 999.95f) ? "M" : "CM");
         _lcd->setCursor(18, 1);
-        if (currentUnit == "M") {
-            _lcd->print(" M");
-        } else {
-            _lcd->print("CM");
-        }
+        _lcd->print(currentUnit == "M" ? " M" : "CM");
     }
-    
-    // --- Line 2: Separator ---
+}
+
+// Helper 3: Render separator line
+void DisplaySys::renderSeparatorLine() {
     String line2 = "====================";
     if (line2 != _lastLine[2]) {
         printLine(2, line2);
         _lastLine[2] = line2;
     }
-    
-    // --- Line 3: Stock Info ---
+}
+
+// Helper 4: Render stock info line
+void DisplaySys::renderInfoLine(uint8_t stockType, const char* stockStr, uint8_t cutMode, uint8_t faceVal) {
     String stockIcon = "";
-    if (stockType == 0) stockIcon = "\xDB";      // Rect: █ (full block) - WORKING!
-    else if (stockType == 1) stockIcon = "L";    // Angle: L
-    else if (stockType == 2) stockIcon = "D";    // Round: D (diameter)
+    if (stockType == 0) stockIcon = "\xDB";       // Rect: █
+    else if (stockType == 1) stockIcon = "L";     // Angle: L
+    else if (stockType == 2) stockIcon = "D";     // Round: D
     
     String line3 = stockIcon + " " + String(stockStr);
-    line3 += " ANG " + String(cutMode) + "\xDF"; // "ANG 45°"
+    line3 += " ANG " + String(cutMode) + "\xDF";  // "ANG 45°"
     
     if (cutMode > 0 && faceVal > 0) {
         line3 += " F:" + String(faceVal);
@@ -256,6 +263,7 @@ void DisplaySys::showIdle(float currentMM, float targetMM, uint8_t cutMode, uint
         _lastLine[3] = line3;
     }
 }
+
 
 void DisplaySys::showHiddenInfo(float kerfMM, float diameter, bool reverseDir, bool autoZeroEnabled) {
     _lcd->clear();
