@@ -354,6 +354,7 @@ void loop()
         }
         else if (event == EVENT_LONG_PRESS)
         {
+            displaySys.resetIdleMode();
             menuSys.init(&settings, &statsSys, &angleSensor);
             currentState = STATE_MENU;
         }
@@ -412,7 +413,15 @@ void loop()
         }
         else
         {
-            displaySys.showIdle(displayMM, targetMM, settings.cutMode, settings.stockType, stockStr, faceVal, settings.isInch, settings.reverseDirection);
+            // Atomic snapshot
+uint8_t snapCutMode = settings.cutMode;
+uint8_t snapStockType = settings.stockType;
+const char* snapStockStr = stockStr;  // Already captured
+uint8_t snapFaceVal = faceVal;  // Already captured
+bool snapIsInch = settings.isInch;
+bool snapReverseDir = settings.reverseDirection;
+displaySys.showIdle(displayMM, targetMM, snapCutMode, snapStockType,
+                    snapStockStr, snapFaceVal, snapIsInch, snapReverseDir);
         }
         break;
     }

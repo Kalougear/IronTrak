@@ -33,6 +33,8 @@ DisplaySys::DisplaySys() {
     _wasSettled = false;
     _lastVelocity = 0.0f;
     _inIdleMode = false;
+    _isTransitioning = false;
+    _transitionStartMillis = 0;
     for (int i = 0; i < 4; i++) {
         _lastLine[i] = "";
     }
@@ -92,6 +94,8 @@ void DisplaySys::showIdle(float currentMM, float /* targetMM */, uint8_t cutMode
     if (!_inIdleMode) {
         _bigNumbers->begin();  // Reload big number custom characters
         _inIdleMode = true;
+        _isTransitioning = true;  // Mark transition start
+        _transitionStartMillis = millis();
         
         // Clear screen to remove menu artifacts
         _lcd->clear();
@@ -106,6 +110,13 @@ void DisplaySys::showIdle(float currentMM, float /* targetMM */, uint8_t cutMode
             _lastLine[i] = "";
         }
     }
+    // Settling delay: suppress rendering for 200ms
+if (_isTransitioning) {
+    if (millis() - _transitionStartMillis < 200) {
+        return;  // Exit early during settling
+    }
+    _isTransitioning = false;
+}
     
     // Convert measurement to display value
     float rawValue;
@@ -383,6 +394,10 @@ void DisplaySys::showMenu4(String l0, String l1, String l2, String l3) {
         printStr(_lcd, l3);
         _lastLine[3] = l3;
     }
+}
+
+void DisplaySys::resetIdleMode() {
+    _inIdleMode = false;
 }
 
 void DisplaySys::showError(const char* msg) {

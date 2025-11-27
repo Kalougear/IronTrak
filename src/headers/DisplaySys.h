@@ -23,7 +23,8 @@ public:
     
     // Clears the screen and resets the display cache to force a full redraw
     void clear();
-
+    // Reset idle mode flag for clean state transitions
+    void resetIdleMode();
 private:
     LiquidCrystal_I2C* _lcd;
     LCDBigNumbers* _bigNumbers;
@@ -45,7 +46,8 @@ private:
     
     // Display mode tracking for proper custom char management
     bool _inIdleMode;  // Track if we're displaying idle screen
-    
+    bool _isTransitioning;  // Track if we're mid-transition (suppress updates)
+    unsigned long _transitionStartMillis;  // When transition started
     
     // GEMINI.md Rule 4.2: Helper functions to keep showIdle() < 60 lines
     float applyVelocityFiltering(float rawValue, bool isInch, unsigned long currentMillis);
