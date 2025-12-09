@@ -25,6 +25,10 @@ public:
     void clear();
     // Reset idle mode flag for clean state transitions
     void resetIdleMode();
+    
+    // Backlight power management
+    void setBacklightTimeout(uint16_t seconds);  // Configure timeout (0 = always ON)
+    void wakeBacklight();  // Force wake + reset activity timer
 private:
     LiquidCrystal_I2C* _lcd;
     LCDBigNumbers* _bigNumbers;
@@ -48,6 +52,11 @@ private:
     bool _inIdleMode;  // Track if we're displaying idle screen
     bool _isTransitioning;  // Track if we're mid-transition (suppress updates)
     unsigned long _transitionStartMillis;  // When transition started
+    
+    // Backlight power management
+    uint32_t _lastActivityMillis;  // Timestamp of last user interaction
+    bool _backlightOn;             // Current backlight state
+    uint16_t _timeoutSeconds;      // Timeout in seconds (0 = disabled)
     
     // GEMINI.md Rule 4.2: Helper functions to keep showIdle() < 60 lines
     float applyVelocityFiltering(float rawValue, bool isInch, unsigned long currentMillis);

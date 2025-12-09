@@ -1,5 +1,7 @@
 #include "../headers/MenuSys.h"
 
+extern volatile bool settingsChanged;
+
 MenuSys::MenuSys()
 {
     // Constructor - Initialization handled in init()
@@ -21,15 +23,40 @@ void MenuSys::init(SystemSettings *settings, StatsSys *stats, AngleSensor *angle
     _angleSensor = angleSensor;
 
 
-    // Reset menu state
+    // Reset menu state variables
     _state = MENU_NAVIGATE;
-    _lastState = MENU_NAVIGATE; // Initialize last state
+    _lastState = MENU_NAVIGATE; 
     _currentItem = 0;
     _scrollOffset = 0;
     _needsRedraw = true;
     _exitRequest = false;
-    _lastActivityTime = millis(); // CRITICAL: Reset timeout timer!
+    _lastActivityTime = millis(); 
     _warningEndTime = 0;
+
+    // Initialize all submenu indices to safe defaults
+    _statsPage = 0;
+    _statsScrollOffset = 0;
+    _statsSubItem = 0;
+
+    _calibSubItem = -1; 
+    _calibScrollOffset = 0;
+    _calibStep = 0;
+    _calibPulses = 0;
+    _calibRealLen = 0.0f;
+    _lastCalibAdjustTime = 0;
+    _calibAdjustSpeed = 0;
+
+    _settingsSubItem = -1;
+    _settingsScrollOffset = 0;
+    _stockPage = 0;
+    
+    _tempDia = 0.0f;
+    _tempKerf = 0.0f;
+    _tempAZThresh = 0.0f;
+    _tempCutMode = 0;
+    _tempRate = 0.0f;
+    _tempBacklightTimeout = 0;
+    _editMode = false;
 }
 
 bool MenuSys::update(InputEvent e, DisplaySys *display, EncoderSys *encoder)
@@ -40,8 +67,16 @@ bool MenuSys::update(InputEvent e, DisplaySys *display, EncoderSys *encoder)
     }
     else if (millis() - _lastActivityTime > 15000)
     {
-        _exitRequest = true;
-        return false;
+        // TASK 2: Strictly DISABLE timeout in CALIBRATION states (and Edit mode)
+        bool isCalibration = (_state == MENU_AUTO_CALIB || 
+                              _state == MENU_CALIB_ANGLE_0 || 
+                              _state == MENU_CALIB_ANGLE_45 || 
+                              _state == MENU_EDIT);
+                              
+        if (!isCalibration) {
+            _exitRequest = true;
+            return false;
+        }
     }
 
     // Check for state change and force redraw
@@ -99,14 +134,7 @@ bool MenuSys::update(InputEvent e, DisplaySys *display, EncoderSys *encoder)
             _needsRedraw = true;
             return true;
 
-        case MENU_AUTO_CALIB:
-        case MENU_CALIB_ANGLE_0:
-        case MENU_CALIB_ANGLE_45:
-            // Return to calibration submenu
-            _state = MENU_CALIBRATION_SUBMENU;
-            _needsRedraw = true;
-            return true;
-
+        // TASK 3: Removed WIZARD states from here to handle Long Press locally (as Save & Exit)
         case MENU_STOCK_SELECT:
             // Return to main navigation
             _state = MENU_NAVIGATE;
@@ -121,6 +149,12 @@ bool MenuSys::update(InputEvent e, DisplaySys *display, EncoderSys *encoder)
             _scrollOffset = (_currentItem > 2) ? _currentItem - 2 : 0;
             _needsRedraw = true;
             return true;
+        
+        // TASK: Allow these states to handle LONG PRESS internally in their specific update handlers
+        case MENU_AUTO_CALIB:
+        case MENU_CALIB_ANGLE_0:
+        case MENU_CALIB_ANGLE_45:
+            break; 
         }
     }
 
@@ -423,12 +457,14 @@ void MenuSys::handleCalibrationSubmenu(InputEvent e)
             // Wheel Diameter (manual edit)
             _state = MENU_EDIT;
             _tempDia = _settings->wheelDiameter;
+            _settingsSubItem = -1; // CRITICAL: Force render logic to pick global calibration path
         }
         else if (_calibSubItem == 3)
         {
             // Kerf Thickness
             _state = MENU_EDIT;
             _tempKerf = _settings->kerfMM;
+            _settingsSubItem = -1; // CRITICAL: Force render logic to pick global calibration path
         }
         else if (_calibSubItem == 4)
         {
@@ -443,18 +479,19 @@ void MenuSys::handleCalibrationSubmenu(InputEvent e)
 
 void MenuSys::handleSettingsSubmenu(InputEvent e)
 {
-    // Settings submenu: 6 items (0-5)
+    // Settings submenu: 7 items (0-6)
     // 0: Units (METRIC/IMPERIAL)
     // 1: Angle Source (MANUAL/AUTO)
     // 2: Auto-Zero (ON/OFF)
     // 3: Auto-Zero Threshold
     // 4: Direction (FWD/REV)
-    // 5: Back
+    // 5: Power Saving (Backlight Timeout)
+    // 6: Back
 
     if (e == EVENT_NEXT)
     {
         _settingsSubItem++;
-        if (_settingsSubItem > 5)
+        if (_settingsSubItem > 6)
             _settingsSubItem = 0;
         _needsRedraw = true;
     }
@@ -462,7 +499,7 @@ void MenuSys::handleSettingsSubmenu(InputEvent e)
     {
         _settingsSubItem--;
         if (_settingsSubItem < 0)
-            _settingsSubItem = 5;
+            _settingsSubItem = 6;
         _needsRedraw = true;
     }
 
@@ -477,16 +514,19 @@ void MenuSys::handleSettingsSubmenu(InputEvent e)
         {
             // Toggle Units (METRIC/IMPERIAL)
             _settings->isInch = !_settings->isInch;
+            settingsChanged = true;
         }
         else if (_settingsSubItem == 1)
         {
             // Toggle Angle Source (MANUAL/AUTO)
             _settings->useAngleSensor = !_settings->useAngleSensor;
+            settingsChanged = true;
         }
         else if (_settingsSubItem == 2)
         {
             // Toggle Auto-Zero
             _settings->autoZeroEnabled = !_settings->autoZeroEnabled;
+            settingsChanged = true;
         }
         else if (_settingsSubItem == 3)
         {
@@ -500,8 +540,17 @@ void MenuSys::handleSettingsSubmenu(InputEvent e)
         {
             // Toggle Direction
             _settings->reverseDirection = !_settings->reverseDirection;
+            settingsChanged = true;
         }
         else if (_settingsSubItem == 5)
+        {
+            // Edit Power Saving (Backlight Timeout)
+            _state = MENU_EDIT;
+            _tempBacklightTimeout = _settings->backlightTimeoutSec;
+            _calibSubItem = -1;
+            _currentItem = -1;
+        }
+        else if (_settingsSubItem == 6)
         {
             // Back to main menu
             _state = MENU_NAVIGATE;
@@ -555,6 +604,7 @@ void MenuSys::handleAutoCalib(InputEvent e, EncoderSys *encoder)
     }
     else if (_calibStep == 3)
     {
+        // TASK 3: Require CLICK to exit/save (Long Press exits without saving)
         if (e == EVENT_CLICK)
         {
             if (_calibPulses != 0)
@@ -565,6 +615,8 @@ void MenuSys::handleAutoCalib(InputEvent e, EncoderSys *encoder)
 
                 _settings->wheelDiameter = newDia;
                 encoder->setWheelDiameter(newDia);
+                // TASK 4: Flag change
+                settingsChanged = true; 
             }
             _state = MENU_CALIBRATION_SUBMENU;
             _needsRedraw = true;
@@ -574,20 +626,34 @@ void MenuSys::handleAutoCalib(InputEvent e, EncoderSys *encoder)
 
 void MenuSys::handleAngleWizard(InputEvent e)
 {
-    if (e == EVENT_CLICK)
+    // TASK 3: Angle Wizard Flow
+    // 0 -> Click -> 45
+    // 45 -> Long Press -> Exit/Save
+    
+    if (_state == MENU_CALIB_ANGLE_0)
     {
-        uint16_t raw = _angleSensor->getRawAngle();
-        if (_state == MENU_CALIB_ANGLE_0)
+        if (e == EVENT_CLICK)
         {
+            uint16_t raw = _angleSensor->getRawAngle();
             _angleSensor->setZeroPoint(raw);
+            _settings->angleRawZero = raw; // Update settings for persistence
             _state = MENU_CALIB_ANGLE_45;
+            _needsRedraw = true;
         }
-        else
+    }
+    else // MENU_CALIB_ANGLE_45
+    {
+        if (e == EVENT_LONG_PRESS)
         {
+            uint16_t raw = _angleSensor->getRawAngle();
             _angleSensor->set45Point(raw);
+            _settings->angleRaw45 = raw; // Update settings for persistence
+            // TASK 4: Flag change
+            settingsChanged = true; 
+            
             _state = MENU_CALIBRATION_SUBMENU;
+            _needsRedraw = true;
         }
-        _needsRedraw = true;
     }
 }
 
@@ -680,6 +746,7 @@ void MenuSys::handleEdit(InputEvent e)
         else if (e == EVENT_CLICK)
         {
             _settings->hourlyRate = max(0.0f, _tempRate);
+            settingsChanged = true; // TASK 4
             _state = MENU_STATS_SELECT;
             _statsSubItem = 2;
             _statsScrollOffset = 0;
@@ -704,6 +771,7 @@ void MenuSys::handleEdit(InputEvent e)
         else if (e == EVENT_CLICK)
         {
             _settings->cutMode = _tempCutMode;
+            settingsChanged = true; // TASK 4
             _state = MENU_NAVIGATE;
             _needsRedraw = true;
         }
@@ -711,7 +779,7 @@ void MenuSys::handleEdit(InputEvent e)
     // Calibration Value Editing (from System Setup menu)
     else if (_calibSubItem >= 0 && _calibSubItem <= 3 && _state == MENU_EDIT)
     {
-        if (_calibSubItem == 0)
+        if (_calibSubItem == 2)  // Wheel Diameter (manual edit from calib submenu)
         {
             if (e == EVENT_NEXT)
                 _tempDia += 0.1f;
@@ -720,6 +788,7 @@ void MenuSys::handleEdit(InputEvent e)
             else if (e == EVENT_CLICK)
             {
                 _settings->wheelDiameter = _tempDia;
+                settingsChanged = true; // TASK 4
                 _state = MENU_CALIBRATION_SUBMENU;
             }
             _needsRedraw = true;
@@ -733,6 +802,7 @@ void MenuSys::handleEdit(InputEvent e)
             else if (e == EVENT_CLICK)
             {
                 _settings->kerfMM = max(0.0f, _tempKerf);
+                settingsChanged = true; // TASK 4
                 _state = MENU_CALIBRATION_SUBMENU;
             }
             _needsRedraw = true;
@@ -747,13 +817,14 @@ void MenuSys::handleEdit(InputEvent e)
             else if (e == EVENT_CLICK)
             {
                 _settings->kerfMM = max(0.0f, _tempKerf);
+                settingsChanged = true; // TASK 4
                 _state = MENU_CALIBRATION_SUBMENU;
             }
             _needsRedraw = true;
         }
     }
     // Settings Value Editing (from Settings submenu)
-    else if (_settingsSubItem >= 0 && _settingsSubItem <= 5 && _state == MENU_EDIT)
+    else if (_settingsSubItem >= 0 && _settingsSubItem <= 6 && _state == MENU_EDIT)
     {
         if (_settingsSubItem == 3)
         {
@@ -765,9 +836,56 @@ void MenuSys::handleEdit(InputEvent e)
             else if (e == EVENT_CLICK)
             {
                 _settings->autoZeroThresholdMM = constrain(_tempAZThresh, 2.0, 20.0);
+                settingsChanged = true; // TASK 4
                 _state = MENU_SETTINGS_SUBMENU;
             }
             _needsRedraw = true;
+        }
+        else if (_settingsSubItem == 5)
+        {
+            // Power Saving (Backlight Timeout) editing
+            // Cycle through presets: 0 (Always ON) → 30s → 1min → 2min → 5min → 10min → wrap
+            const uint16_t presets[] = {0, 30, 60, 120, 300, 600};
+            const uint8_t presetCount = 6;
+            
+            if (e == EVENT_NEXT)
+            {
+                // Find current preset index
+                uint8_t currentIdx = 0;
+                for (uint8_t i = 0; i < presetCount; i++) {
+                    if (_tempBacklightTimeout == presets[i]) {
+                        currentIdx = i;
+                        break;
+                    }
+                }
+                // Increment with wrap
+                currentIdx = (currentIdx + 1) % presetCount;
+                _tempBacklightTimeout = presets[currentIdx];
+                _needsRedraw = true;
+            }
+            else if (e == EVENT_PREV)
+            {
+                // Find current preset index
+                uint8_t currentIdx = 0;
+                for (uint8_t i = 0; i < presetCount; i++) {
+                    if (_tempBacklightTimeout == presets[i]) {
+                        currentIdx = i;
+                        break;
+                    }
+                }
+                // Decrement with wrap
+                currentIdx = (currentIdx == 0) ? (presetCount - 1) : (currentIdx - 1);
+                _tempBacklightTimeout = presets[currentIdx];
+                _needsRedraw = true;
+            }
+            else if (e == EVENT_CLICK)
+            {
+                // Save setting
+                _settings->backlightTimeoutSec = _tempBacklightTimeout;
+                settingsChanged = true; // TASK 4
+                _state = MENU_SETTINGS_SUBMENU;
+                _needsRedraw = true;
+            }
         }
     }
 }
@@ -901,12 +1019,19 @@ void MenuSys::renderAutoCalibWizard(DisplaySys *display) {
             break;
             
         default:  // Step 4: Show/save calculated diameter
-            float mmPerPulse = abs(_calibRealLen) / (float)abs(_calibPulses);
-            float newDia = (mmPerPulse * PULSES_PER_REV) / PI;
-            l0 = formatHeader("\x04 STEP 4: SAVE");
-            l1 = " \x04 NEW WHEEL DIA:";
-            l2 = " \x04 " + String(newDia, 3) + " MM";
-            l3 = formatCenter("CLICK TO SAVE");
+            if (_calibPulses == 0) {
+                l0 = formatHeader("\x04 ERROR");
+                l1 = formatCenter("NO MOVEMENT DETECTED");
+                l2 = formatCenter("PULSES = 0");
+                l3 = formatCenter("LONG PRESS TO EXIT");
+            } else {
+                float mmPerPulse = abs(_calibRealLen) / (float)abs(_calibPulses);
+                float newDia = (mmPerPulse * PULSES_PER_REV) / PI;
+                l0 = formatHeader("\x04 STEP 4: SAVE");
+                l1 = " \x04 NEW WHEEL DIA:";
+                l2 = " \x04 " + String(newDia, 3) + " MM";
+                l3 = formatCenter("CLICK TO SAVE");
+            }
             break;
     }
     
@@ -1061,7 +1186,7 @@ void MenuSys::renderScrollableMenu(DisplaySys *display, const String& /* title *
         l0 = formatHeader("SETTINGS");
         currentItem = _settingsSubItem;
         scrollOffset = _settingsScrollOffset;
-        itemCount = 6;
+        itemCount = 7;  // Updated from 6 to 7 (added Power Saving)
     }
     
     // Render 3 visible items
@@ -1193,28 +1318,55 @@ String MenuSys::getMenuItemCalibration(int idx, bool selected) {
     return s;
 }
 
+// GEMINI.md Rule 4.2: Helper - Settings Menu Items
 String MenuSys::getMenuItemSettings(int idx, bool selected) {
     String s = selected ? "> " : "  ";
     bool editing = (_state == MENU_EDIT && selected);
     
     switch (idx) {
-        case 0: s += "\x08 UNITS : " + String(_settings->isInch ? "IMPERIAL" : "METRIC"); break;
-        case 1: s += "\x07 ANGLE SRC: " + String(_settings->useAngleSensor ? "AUTO" : "MAN"); break;
-        case 2: s += "\x04 AUTO-ZERO: " + String(_settings->autoZeroEnabled ? "ON" : "OFF"); break;
-        case 3:
-            if (editing)
-                s = "> \x7E \x04 AZ THRESH: " + String(_tempAZThresh, 1);
-            else
-                s += "\x04 AZ THRESH: " + String(_settings->autoZeroThresholdMM, 1);
+        case 0:  // Units
+            s += "\x05 UNITS: ";
+            s += _settings->isInch ? "IMPERIAL" : "METRIC";
             break;
-        case 4: s += "\x06 DIR : " + String(_settings->reverseDirection ? "REV" : "FWD"); break;
-        case 5: s += "  BACK"; break;
+        case 1:  // Angle Source
+            s += "\x07 ANGLE: ";
+            s += _settings->useAngleSensor ? "AUTO" : "MANUAL";
+            break;
+        case 2:  // Auto-Zero
+            s += "\x03 AUTO-ZERO: ";
+            s += _settings->autoZeroEnabled ? "ON" : "OFF";
+            break;
+        case 3:  // Auto-Zero Threshold
+            if (editing)
+                s = "> \x7E \x03 AZ THRESH: " + String(_tempAZThresh, 1);
+            else
+                s += "\x03 AZ THRESH: " + String(_settings->autoZeroThresholdMM, 1) + " MM";
+            break;
+        case 4:  // Direction
+            s += "\x04 DIR: ";
+            s += _settings->reverseDirection ? "REVERSE" : "FORWARD";
+            break;
+        case 5:  // Backlight Timeout
+            if (editing) {
+                if (_tempBacklightTimeout == 0)
+                    s = "> \x7E \x05 PWR: ALWAYS ON";
+                else
+                    s = "> \x7E \x05 PWR: " + String(_tempBacklightTimeout) + "s";
+            } else {
+                if (_settings->backlightTimeoutSec == 0)
+                    s += "\x05 PWR: ALWAYS ON";
+                else
+                    s += "\x05 PWR: " + String(_settings->backlightTimeoutSec) + "s";
+            }
+            break;
+        case 6:  // Back
+            s += "  BACK";
+            break;
         default: return "";
     }
     return s;
 }
 
-// GEMINI.md Rule 4.2: Menu item renderer with robust bounds checking
 // NOTE: Refactored to <60 lines by delegating to helper functions
 //
 String MenuSys::getMenuItem(int idx, int currentItem, int itemCount) {
@@ -1259,3 +1411,4 @@ String MenuSys::getMenuItem(int idx, int currentItem, int itemCount) {
         return "ERR:STATE";
     }
 }
+

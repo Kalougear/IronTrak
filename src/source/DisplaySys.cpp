@@ -35,6 +35,12 @@ DisplaySys::DisplaySys() {
     _inIdleMode = false;
     _isTransitioning = false;
     _transitionStartMillis = 0;
+    
+    // Backlight power management initialization
+    _lastActivityMillis = 0;
+    _backlightOn = true;
+    _timeoutSeconds = 0;  // Will be set by main.cpp from settings
+    
     for (int i = 0; i < 4; i++) {
         _lastLine[i] = "";
     }
@@ -76,7 +82,20 @@ void DisplaySys::init() {
 }
 
 void DisplaySys::update() {
-    // Placeholder
+    // GEMINI.md Rule 4.2: Backlight auto-off logic
+    // Skip if timeout disabled (0 = always ON)
+    if (_timeoutSeconds == 0) return;
+    
+    // Calculate idle time
+    uint32_t currentMillis = millis();
+    uint32_t idleMillis = currentMillis - _lastActivityMillis;
+    uint32_t timeoutMillis = (uint32_t)_timeoutSeconds * 1000;
+    
+    // Auto-off after timeout
+    if (_backlightOn && idleMillis > timeoutMillis) {
+        _lcd->noBacklight();
+        _backlightOn = false;
+    }
 }
 
 void DisplaySys::showIdle(float currentMM, float /* targetMM */, uint8_t cutMode, uint8_t stockType, const char* stockStr, uint8_t faceVal, bool isInch, bool /* reverseDir  */) {
@@ -461,4 +480,23 @@ void DisplaySys::createCustomChars() {
     // 7: Angle (User Defined - Refined)
     uint8_t iconAngleSym[8] = {0x00, 0x10, 0x18, 0x1C, 0x1E, 0x1F, 0x00, 0x00};
     _lcd->createChar(7, iconAngleSym);
+}
+
+// ============================================================================
+// GEMINI.md Rule 4.2: Backlight Power Management Methods
+// ============================================================================
+
+void DisplaySys::setBacklightTimeout(uint16_t seconds) {
+    _timeoutSeconds = seconds;
+    _lastActivityMillis = millis();  // Reset timer
+}
+
+void DisplaySys::wakeBacklight() {
+    // Wake backlight if OFF
+    if (!_backlightOn) {
+        _lcd->backlight();
+        _backlightOn = true;
+    }
+    // Reset activity timer
+    _lastActivityMillis = millis();
 }

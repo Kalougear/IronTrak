@@ -7,13 +7,17 @@
 ## 📚 Documentation Index
 
 ### Getting Started
+
 - **[README.md](README.md)** - Project overview, features, quick start guide
 - **[CALIBRATION.md](CALIBRATION.md)** - Setup and calibration procedures (START HERE after hardware assembly)
 
 ### Hardware
+
 - **[HARDWARE.md](HARDWARE.md)** - Complete hardware specifications, pinout, wiring diagrams, power requirements
+- **[ASSEMBLY_STANDARDS.md](ASSEMBLY_STANDARDS.md)** - Technical assembly procedures, soldering standards, quality tiers (Medium/High), workflow checklists
 
 ### Software
+
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - Software design, subsystem architecture, state machines, data flow
 - **[API_REFERENCE.md](API_REFERENCE.md)** - Class and method documentation for developers
 
@@ -21,21 +25,23 @@
 
 ## 🚀 Quick Links
 
-| I Want To... | Go To |
-|--------------|-------|
-| Understand what IronTrak does | [README.md](README.md#overview) |
-| Wire up the hardware | [HARDWARE.md](HARDWARE.md#wiring-diagrams) |
-| Calibrate the encoder | [CALIBRATION.md](CALIBRATION.md#auto-calibration-wizard) |
-| Understand the code | [ARCHITECTURE.md](ARCHITECTURE.md#system-architecture) |
-| Use a specific API | [API_REFERENCE.md](API_REFERENCE.md) |
-| Fix hardware issues | [HARDWARE.md](HARDWARE.md#troubleshooting) |
-| Fix calibration issues | [CALIBRATION.md](CALIBRATION.md#troubleshooting) |
+| I Want To...                  | Go To                                                              |
+| ----------------------------- | ------------------------------------------------------------------ |
+| Understand what IronTrak does | [README.md](README.md#overview)                                    |
+| Wire up the hardware          | [HARDWARE.md](HARDWARE.md#wiring-diagrams)                         |
+| Build/assemble hardware       | [ASSEMBLY_STANDARDS.md](ASSEMBLY_STANDARDS.md#workflow-checklists) |
+| Calibrate the encoder         | [CALIBRATION.md](CALIBRATION.md#auto-calibration-wizard)           |
+| Understand the code           | [ARCHITECTURE.md](ARCHITECTURE.md#system-architecture)             |
+| Use a specific API            | [API_REFERENCE.md](API_REFERENCE.md)                               |
+| Fix hardware issues           | [HARDWARE.md](HARDWARE.md#troubleshooting)                         |
+| Fix calibration issues        | [CALIBRATION.md](CALIBRATION.md#troubleshooting)                   |
 
 ---
 
 ## 📖 Documentation Standards
 
 All documentation follows:
+
 - **Markdown format** with GitHub Flavored Markdown extensions
 - **Professional tone** - technical but accessible
 - **Complete examples** - copy-paste ready code snippets
@@ -47,7 +53,7 @@ All documentation follows:
 
 ## 🔄 Documentation Updates
 
-**Last Major Update:** 2025-11-25  
+**Last Major Update:** 2025-11-28  
 **Compatible Firmware:** v1.0.0+  
 **Hardware Version:** v1.0
 
@@ -55,15 +61,16 @@ All documentation follows:
 
 ## 📁 File Overview
 
-| File | Size | Description |
-|------|------|-------------|
-| **README.md** | 9.5 KB | Project overview and feature list |
-| **HARDWARE.md** | 15.5 KB | Hardware specifications and wiring |
-| **ARCHITECTURE.md** | 14.7 KB | Software design and implementation |
-| **API_REFERENCE.md** | 12.7 KB | Complete class and method reference |
-| **CALIBRATION.md** | 9.7 KB | Step-by-step calibration guide |
+| File                      | Size    | Description                               |
+| ------------------------- | ------- | ----------------------------------------- |
+| **README.md**             | 9.5 KB  | Project overview and feature list         |
+| **HARDWARE.md**           | 15.5 KB | Hardware specifications and wiring        |
+| **ASSEMBLY_STANDARDS.md** | 46.0 KB | Assembly procedures and quality standards |
+| **ARCHITECTURE.md**       | 14.7 KB | Software design and implementation        |
+| **API_REFERENCE.md**      | 12.7 KB | Complete class and method reference       |
+| **CALIBRATION.md**        | 9.7 KB  | Step-by-step calibration guide            |
 
-**Total:** ~62 KB of comprehensive technical documentation
+**Total:** ~108 KB of comprehensive technical documentation
 
 ---
 

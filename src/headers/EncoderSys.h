@@ -25,6 +25,7 @@ public:
     void setWheelDiameter(float diameterMM);
     float getWheelDiameter();
     void setOffset(float offsetMM);
+    void setReverseDirection(bool reverse);
 
 private:
     // GEMINI.md Rule 4.2: Validation constants for parameter checking
@@ -44,6 +45,7 @@ private:
     float _wheelDiameter;
     float _mmPerPulse;
     float _offsetMM;
+    bool _reverseDirection;
     
     void recalculateCalibration();
 };

@@ -3,6 +3,7 @@
 EncoderSys::EncoderSys() {
     _wheelDiameter = DEFAULT_WHEEL_DIA_MM;
     _offsetMM = 0.0f;
+    _reverseDirection = false;
     recalculateCalibration();
     
 #if defined(STM32F4xx)
@@ -162,7 +163,9 @@ long EncoderSys::getRawCount() {
 
 float EncoderSys::getDistanceMM() {
     long raw = getRawCount();
-    return (raw * _mmPerPulse) - _offsetMM;
+    // Apply direction reversal if enabled
+    float direction = _reverseDirection ? -1.0f : 1.0f;
+    return (raw * _mmPerPulse * direction) - _offsetMM;
 }
 
 void EncoderSys::setWheelDiameter(float diameterMM) {
@@ -188,6 +191,10 @@ float EncoderSys::getWheelDiameter() {
 
 void EncoderSys::setOffset(float offsetMM) {
     _offsetMM = offsetMM;
+}
+
+void EncoderSys::setReverseDirection(bool reverse) {
+    _reverseDirection = reverse;
 }
 
 void EncoderSys::recalculateCalibration() {

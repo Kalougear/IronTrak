@@ -40,6 +40,9 @@ AutoZeroState azState = AZ_DISABLED;
 float lockedPosition = 0.0f;
 unsigned long stillnessStartTime = 0;
 
+// Settings Modified Flag (Global)
+volatile bool settingsChanged = false;
+
 // Double-click detection
 unsigned long lastClickTime = 0;
 const unsigned long DOUBLE_CLICK_WINDOW = 500; // 500ms
@@ -190,7 +193,10 @@ void setup()
     displaySys.init();
     Serial1.println("Display OK (I2C Started)");
 
-    Serial1.println("Settings initialized with defaults (no persistence)");
+    Serial1.println("Initializing Storage & Loading Settings...");
+    Storage::init();
+    Storage::load(&settings);
+    Serial1.println("Settings Loaded");
 
     Serial1.println("Initializing Angle Sensor...");
     if (settings.useAngleSensor)
@@ -215,6 +221,7 @@ void setup()
     Serial1.println("Encoder init OK");
 
     encoderSys.setWheelDiameter(settings.wheelDiameter);
+    encoderSys.setReverseDirection(settings.reverseDirection);
     Serial1.println("Encoder calibrated");
 
     Serial1.println("Initializing User Input (KY-040)...");
@@ -228,6 +235,11 @@ void setup()
     Serial1.println("Initializing Menu System...");
     menuSys.init(&settings, &statsSys, &angleSensor); // Pass sensor
     Serial1.println("Menu OK");
+
+    // Configure Display Power Saving
+    Serial1.println("Configuring Display Power Saving...");
+    displaySys.setBacklightTimeout(settings.backlightTimeoutSec);
+    Serial1.println("Backlight timeout set");
 
     // 3. Configure Timer for 1kHz Interrupt
     Serial1.println("Configuring TIM3 for 1kHz tick...");
@@ -284,6 +296,11 @@ void loop()
 
     // 1. Handle User Input
     InputEvent event = userInput.getEvent();
+    
+    // Wake backlight on ANY user input (button press or encoder rotation)
+    if (event != EVENT_NONE) {
+        displaySys.wakeBacklight();
+    }
 
     // 2. State Machine
     switch (currentState)
@@ -306,6 +323,13 @@ void loop()
         float currentMM = encoderSys.getDistanceMM();
         const char *stockStr = getStockString();
         uint8_t faceVal = getFaceValue();
+        
+        // Wake backlight on fence movement (encoder rotation)
+        static float lastEncoderMM = 0.0f;
+        if (abs(currentMM - lastEncoderMM) > 0.1f) {  // Fence moved > 0.1mm
+            displaySys.wakeBacklight();
+            lastEncoderMM = currentMM;
+        }
 
         // Handle events
         if (event == EVENT_SUPER_LONG_PRESS)
@@ -447,8 +471,16 @@ displaySys.showIdle(displayMM, targetMM, snapCutMode, snapStockType,
                 if (settings.cutMode > 90) settings.cutMode = 0;
             }
             
+            // TASK 7: Persist settings if changed
+            if (settingsChanged)
+            {
+                Storage::save(settings);
+                settingsChanged = false;
+            }
+
             currentState = STATE_IDLE;
             encoderSys.setWheelDiameter(settings.wheelDiameter);
+            encoderSys.setReverseDirection(settings.reverseDirection);
             azState = AZ_DISABLED;
         }
         break;

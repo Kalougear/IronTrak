@@ -34,7 +34,16 @@ struct SystemSettings
     unsigned long projectSeconds = 0;
     unsigned long totalSeconds = 0;
 
+    // Power Saving
+    uint16_t backlightTimeoutSec = 300;  // Default: 5 minutes (0 = always ON)
+};
 
+class Storage
+{
+public:
+    static void init();
+    static void load(SystemSettings *settings);
+    static void save(const SystemSettings &settings);
 };
 
 #endif // STORAGE_H

@@ -82,6 +82,7 @@ private:
     float _tempAZThresh;
     uint8_t _tempCutMode;
     float _tempRate; // For editing hourly rate
+    uint16_t _tempBacklightTimeout;  // For editing backlight timeout
 
     bool _editMode;
     bool _needsRedraw;

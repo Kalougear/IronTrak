@@ -58,6 +58,16 @@
 #define WATCHDOG_TIMEOUT_MS 2000
 
 // ============================================================================
+// BACKLIGHT POWER SAVING
+// ============================================================================
+#define BACKLIGHT_ALWAYS_ON  0      // 0 = Disabled (always ON)
+#define BACKLIGHT_30_SEC     30
+#define BACKLIGHT_1_MIN      60
+#define BACKLIGHT_2_MIN      120
+#define BACKLIGHT_5_MIN      300    // Default
+#define BACKLIGHT_10_MIN     600
+
+// ============================================================================
 // STOCK LIBRARY (Metric)
 // ============================================================================
 extern const char *STOCK_RECT_MM[];
